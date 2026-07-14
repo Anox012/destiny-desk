@@ -1,0 +1,26 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next
+/out
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# รูปต้นฉบับความละเอียดสูง (เก็บไว้ในเครื่องเท่านั้น ไม่ต้องขึ้น git)
+# เว็บใช้รูปที่บีบแล้วใน public/tarotimages/ พอ
+/Tarotimm
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.vercel

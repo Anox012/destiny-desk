@@ -1,0 +1,769 @@
+/* ============================================================
+   Destiny Desk — ธีม Art Nouveau : พาสเทล + ลายเส้นสีทอง
+   ============================================================ */
+
+:root {
+  --gold: #b8860b;
+  --gold-light: #d4af37;
+  --gold-soft: #e6c976;
+  --brown: #5b4636;      /* สีน้ำตาลสำหรับข้อความใต้ไพ่ */
+  --purple: #8a2be2;
+  --pastel-1: #f5ecdd;   /* ครีม */
+  --pastel-2: #e8dff0;   /* ม่วงอ่อน */
+  --pastel-3: #dceae4;   /* เขียวมิ้นต์อ่อน */
+  --pastel-rose: #f3e0e6;
+  --ink: #4a3b30;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Noto Sans Thai", "Noto Sans", Arial, sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 15% 15%, var(--pastel-2), transparent 45%),
+    radial-gradient(circle at 85% 20%, var(--pastel-rose), transparent 45%),
+    radial-gradient(circle at 50% 90%, var(--pastel-3), transparent 55%),
+    linear-gradient(160deg, var(--pastel-1), #efe6d6);
+  background-attachment: fixed;
+}
+
+/* ---------- โครงหน้า ---------- */
+.app {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+}
+
+.app-header {
+  text-align: center;
+  padding: 18px 0 6px;
+}
+
+.app-title {
+  font-family: "Cormorant Garamond", "Noto Sans", serif;
+  font-size: clamp(34px, 6vw, 56px);
+  letter-spacing: 2px;
+  margin: 0;
+  color: var(--gold);
+  text-shadow: 0 1px 0 #fff, 0 2px 8px rgba(184, 134, 11, 0.25);
+}
+
+.app-subtitle {
+  margin: 4px 0 0;
+  color: var(--brown);
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.gold-rule {
+  height: 2px;
+  margin: 14px auto 22px;
+  max-width: 520px;
+  background: linear-gradient(90deg, transparent, var(--gold-light), transparent);
+  position: relative;
+}
+.gold-rule::after {
+  content: "❖";
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--gold-light);
+  background:
+    radial-gradient(circle at 15% 15%, var(--pastel-2), transparent 45%),
+    linear-gradient(160deg, var(--pastel-1), #efe6d6);
+  padding: 0 10px;
+  font-size: 16px;
+}
+
+/* ---------- แผงควบคุม (อยู่ด้านบน) ---------- */
+.panel {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--gold-soft);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 10px 30px rgba(120, 90, 30, 0.12);
+  backdrop-filter: blur(4px);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brown);
+  margin-bottom: 6px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--gold-soft);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+.field textarea {
+  resize: vertical;
+  min-height: 46px;
+}
+
+/* ---------- ปุ่ม ---------- */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+/* ปุ่มหลัก "Magic press" — ตัวหนังสือสีทอง Noto Sans 14 หนา ขอบมน หนา */
+.btn-magic {
+  font-family: "Noto Sans", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 0.5px;
+  padding: 16px 40px;
+  border-radius: 16px;
+  border: 2px solid var(--gold-light);
+  cursor: pointer;
+  background: linear-gradient(160deg, #6a2ca8, var(--purple) 55%, #4b1c7a);
+  box-shadow:
+    0 8px 0 #3c1566,           /* ทำให้ปุ่มดูหนา */
+    0 12px 24px rgba(74, 28, 122, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.btn-magic:hover {
+  filter: brightness(1.06);
+}
+.btn-magic:active {
+  transform: translateY(6px);
+  box-shadow:
+    0 2px 0 #3c1566,
+    0 4px 10px rgba(74, 28, 122, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.btn-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: "Noto Sans", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  padding: 14px 26px;
+  border-radius: 14px;
+  border: 2px solid var(--gold);
+  cursor: pointer;
+  background: linear-gradient(160deg, var(--gold-light), var(--gold));
+  box-shadow: 0 6px 0 #8a6608, 0 10px 18px rgba(160, 120, 20, 0.3);
+  transition: transform 0.08s ease;
+}
+.btn-copy svg {
+  flex-shrink: 0;
+}
+.btn-copy:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #8a6608;
+}
+.btn-copy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  font-family: "Noto Sans Thai", "Noto Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brown);
+  padding: 12px 20px;
+  border-radius: 14px;
+  border: 1px solid var(--gold-soft);
+  background: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+.btn-ghost:active {
+  transform: translateY(2px);
+}
+
+.ai-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--brown);
+  opacity: 0.85;
+  margin: 10px auto 0;
+  max-width: 560px;
+  line-height: 1.6;
+}
+
+/* ---------- โซนแสดงไพ่ (ด้านล่าง) ---------- */
+.board-wrap {
+  margin-top: 30px;
+}
+
+.section-title {
+  text-align: center;
+  color: var(--gold);
+  font-family: "Cormorant Garamond", serif;
+  font-size: 26px;
+  margin: 8px 0 18px;
+}
+
+.empty-hint {
+  text-align: center;
+  color: var(--brown);
+  opacity: 0.7;
+  padding: 40px 10px;
+  font-size: 15px;
+}
+
+/* แถวไพ่แนวนอน (1 ใบ / 3 ใบ) */
+.card-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* การ์ดหนึ่งใบ + คำอธิบาย */
+.card-slot {
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pos-label {
+  font-family: "Noto Sans Thai", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 8px;
+  min-height: 32px;
+}
+
+/* หลังไพ่ (เมื่อยังไม่เปิด หรือไม่มีรูป) */
+.card-back {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold-soft);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.25), transparent 60%),
+    repeating-linear-gradient(45deg, #241a54 0 10px, #1a1440 10px 20px);
+  border-radius: 12px;
+}
+.card-back .rune {
+  font-size: 46px;
+  text-shadow: 0 0 14px rgba(212, 175, 55, 0.7);
+}
+
+/* คำอธิบายใต้ไพ่ : Noto Sans 10 สีน้ำตาล ตัดบรรทัดอัตโนมัติ */
+.card-caption {
+  margin-top: 10px;
+  width: 200px;
+  text-align: center;
+  font-family: "Noto Sans", "Noto Sans Thai", Arial, sans-serif;
+  font-size: 10px;
+  color: var(--brown);
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.card-caption .en {
+  font-weight: 700;
+  font-size: 12px;
+  display: block;
+  margin-bottom: 3px;
+  color: var(--ink);
+}
+
+/* ---------- กระดาน Celtic Cross ---------- */
+.celtic-scroll {
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+.celtic-board {
+  position: relative;
+  width: 860px;
+  height: 980px; /* สูงพอให้คอลัมน์ขวา (ระยะ 21% ต่อใบ) ไม่ทับป้ายชื่อกัน */
+  margin: 0 auto;
+}
+.celtic-cell {
+  position: absolute;
+  width: 118px;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.celtic-cell.rotated .flip {
+  transform: rotate(90deg);
+}
+.celtic-index {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 4px;
+  text-align: center;
+  line-height: 1.25;
+}
+/* ป้ายชื่อของไพ่ขวาง (ตำแหน่ง 2) อยู่ใต้ไพ่ */
+.celtic-cell.rotated .celtic-index {
+  margin: 8px 0 0;
+}
+
+/* ---------- Popup ความหมายไพ่ ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 20, 50, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+.popup {
+  background: linear-gradient(160deg, #fff9ef, var(--pastel-2));
+  border: 2px solid var(--gold-light);
+  border-radius: 20px;
+  max-width: 380px;
+  width: 100%;
+  padding: 22px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(80, 50, 20, 0.4);
+}
+.popup .popup-frame {
+  width: 160px;
+  height: 240px;
+  margin: 0 auto 14px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--gold);
+  background: #1a1440;
+}
+.popup .popup-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.popup .popup-pos {
+  font-size: 13px;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.popup .popup-en {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 26px;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+.popup .popup-th {
+  font-size: 14px;
+  color: var(--brown);
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+
+/* ---------- Journal ---------- */
+.journal {
+  margin-top: 40px;
+}
+.journal-item {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--gold-soft);
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--ink);
+}
+.journal-item .meta {
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.journal-item .cards {
+  color: var(--brown);
+}
+
+/* ---------- คำเตือน ---------- */
+.disclaimer {
+  margin-top: 40px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--brown);
+  opacity: 0.8;
+  line-height: 1.6;
+  border-top: 1px dashed var(--gold-soft);
+  padding-top: 18px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 22px;
+  border-radius: 30px;
+  font-size: 14px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  z-index: 80;
+}
+
+@media (max-width: 640px) {
+  .celtic-board {
+    transform-origin: top center;
+  }
+}
+
+/* ============================================================
+   ✨ เอฟเฟกต์เพิ่มความขลัง
+   ============================================================ */
+
+/* พื้นหลังผงทองลอย (canvas)
+   z-index: -1 เพื่อให้วาด "หลัง" เนื้อหาทั้งหมดใน .app (positioned z>=0 จะทับตัวหนังสือ) */
+.starfield {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+.app {
+  position: relative;
+  z-index: 1;
+}
+
+/* ชื่อเว็บเรืองแสงไล่สีทอง */
+.app-title {
+  background: linear-gradient(90deg, #b8860b, #f3e3b0, #d4af37, #f3e3b0, #b8860b);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(184, 134, 11, 0.35));
+  animation: titleShimmer 6s linear infinite;
+}
+@keyframes titleShimmer {
+  to {
+    background-position: 220% center;
+  }
+}
+
+/* ออร่ารอบปุ่ม Magic press */
+.btn-magic {
+  position: relative;
+  isolation: isolate;
+}
+.btn-magic::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 20px;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.55), rgba(138, 43, 226, 0.2) 55%, transparent 75%);
+  filter: blur(12px);
+  z-index: -1;
+  opacity: 0.6;
+  animation: btnAura 2.8s ease-in-out infinite;
+}
+@keyframes btnAura {
+  0%, 100% { transform: scale(1); opacity: 0.45; }
+  50% { transform: scale(1.15); opacity: 0.9; }
+}
+
+/* ---- ไพ่พลิก 3D ---- */
+.flip {
+  perspective: 1300px;
+  cursor: pointer;
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+.flip.size-lg {
+  width: 200px;
+  height: 300px;
+}
+.flip.size-sm {
+  width: 110px;
+  height: 165px;
+}
+.flip:hover {
+  filter: brightness(1.05);
+}
+.flip.size-lg:hover {
+  transform: translateY(-8px);
+}
+.flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.flip-inner.flipped {
+  transform: rotateY(180deg);
+}
+.flip-face {
+  position: absolute;
+  inset: 0;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid var(--gold-light);
+  box-shadow: 0 10px 22px rgba(120, 90, 30, 0.25);
+  background: #1a1440;
+}
+.flip.size-sm .flip-face {
+  border-radius: 10px;
+}
+.flip-front {
+  transform: rotateY(180deg);
+}
+.flip-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* แสงเรืองตอนไพ่เปิด */
+.flip-inner.flipped .flip-front {
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.5), 0 0 26px rgba(212, 175, 55, 0.5),
+    0 10px 22px rgba(120, 90, 30, 0.3);
+}
+.flip.is-open .flip-front {
+  border-color: var(--gold);
+}
+
+/* หลังไพ่กะพริบเบาๆ ตอนยังคว่ำ (เชิญชวนให้คลิก) */
+.flip-inner:not(.flipped) .card-back .rune {
+  animation: runePulse 2.4s ease-in-out infinite;
+}
+@keyframes runePulse {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+/* การ์ดค่อยๆ ปรากฏ (แจกไพ่) */
+.card-slot.dealt {
+  animation: dealIn 0.6s both;
+}
+@keyframes dealIn {
+  from { opacity: 0; transform: translateY(34px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+
+/* คำอธิบายค่อยๆ โผล่หลังไพ่พลิกเสร็จ */
+.card-caption {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.card-caption.show {
+  opacity: 1;
+}
+
+/* ป็อปอัปเด้งนุ่ม */
+.overlay {
+  animation: overlayIn 0.25s ease;
+}
+.popup {
+  animation: popIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25);
+}
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+
+/* หัวข้อค่อยๆ โผล่ */
+.section-title {
+  animation: dealIn 0.5s both;
+}
+
+/* เคารพผู้ที่ปิดแอนิเมชัน */
+@media (prefers-reduced-motion: reduce) {
+  .app-title,
+  .btn-magic::before,
+  .card-slot.dealt,
+  .section-title,
+  .flip-inner:not(.flipped) .card-back .rune,
+  .overlay,
+  .popup {
+    animation: none !important;
+  }
+  .flip-inner {
+    transition: none !important;
+  }
+}
+
+/* ============================================================
+   📱 รองรับมือถือ (Responsive)
+   ============================================================ */
+@media (max-width: 760px) {
+  .app {
+    padding: 12px 12px 48px;
+  }
+  .app-title {
+    font-size: clamp(30px, 9vw, 44px);
+    letter-spacing: 1px;
+  }
+  .app-subtitle {
+    font-size: 12px;
+    padding: 0 8px;
+  }
+  .panel {
+    padding: 14px;
+    border-radius: 16px;
+  }
+  .field-grid {
+    grid-template-columns: 1fr; /* ช่องกรอกเรียงลงมาทีละอัน */
+    gap: 12px;
+  }
+
+  /* ปุ่มเต็มความกว้าง กดง่ายบนมือถือ */
+  .actions {
+    gap: 10px;
+  }
+  .btn-magic,
+  .btn-copy,
+  .btn-ghost {
+    width: 100%;
+    max-width: 340px;
+    text-align: center;
+  }
+
+  /* ไพ่ใบเดี่ยว/สามใบ ปรับให้พอดีจอ */
+  .card-row {
+    gap: 16px;
+  }
+  .card-slot {
+    width: 46vw;
+    max-width: 200px;
+  }
+  .flip.size-lg {
+    width: 46vw;
+    max-width: 200px;
+    height: calc(46vw * 1.5);
+    max-height: 300px;
+  }
+  /* ไพ่รายวัน 1 ใบ ให้ใหญ่เต็มกว่านี้ */
+  .card-row:has(.card-slot:only-child) .card-slot,
+  .card-row:has(.card-slot:only-child) .flip.size-lg {
+    width: 62vw;
+    max-width: 240px;
+    height: auto;
+  }
+  .card-row:has(.card-slot:only-child) .flip.size-lg {
+    height: calc(62vw * 1.5);
+    max-height: 360px;
+  }
+  .card-caption,
+  .card-slot {
+    width: 100%;
+  }
+
+  /* ---- Celtic Cross บนมือถือ: เปลี่ยนเป็นกริด 2 คอลัมน์เรียงตามลำดับ ----
+     (แผนผังไม้กางเขนแบบทับซ้อนไม่เหมาะกับจอแคบ) */
+  .celtic-scroll {
+    overflow: visible;
+  }
+  .celtic-board {
+    position: static;
+    width: 100%;
+    height: auto;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px 12px;
+    justify-items: center;
+  }
+  .celtic-cell {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    width: 100%;
+  }
+  .celtic-cell.rotated .flip {
+    transform: none !important; /* ไม่หมุนบนกริดมือถือ */
+  }
+  /* บนกริดมือถือให้ป้ายชื่ออยู่เหนือไพ่ทุกใบเหมือนกัน (รวมตำแหน่ง 2) */
+  .celtic-cell .celtic-index {
+    order: -1;
+    margin: 0 0 4px;
+  }
+  .flip.size-sm {
+    width: 40vw;
+    max-width: 150px;
+    height: calc(40vw * 1.5);
+    max-height: 225px;
+  }
+  .celtic-index {
+    font-size: 11px;
+    min-height: 30px;
+  }
+
+  .section-title {
+    font-size: 22px;
+  }
+  .popup {
+    max-width: 340px;
+  }
+  .journal-item {
+    font-size: 12px;
+  }
+}
+
+/* จอเล็กมาก (มือถือแนวตั้งแคบ) */
+@media (max-width: 380px) {
+  .card-slot {
+    width: 60vw;
+  }
+  .flip.size-lg {
+    width: 60vw;
+    height: calc(60vw * 1.5);
+  }
+}
