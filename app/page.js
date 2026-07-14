@@ -137,14 +137,14 @@ export default function Home() {
   }
 
   // ---------- เรขาคณิตของกองไพ่ที่กรีดเป็นแถว ----------
-  const CARD_W = compact ? 66 : 92;
-  const CARD_H = compact ? 100 : 140;
-  const FAN_SPACING = compact ? 9 : 13;
+  const CARD_W = compact ? 58 : 78;
+  const CARD_H = compact ? 88 : 118;
+  const FAN_SPACING = compact ? 7 : 10;
   const FAN_ANGLE = compact ? 2.1 : 2.4;
-  const trackWidth = FAN_SPACING * (TOTAL_CARDS - 1) + CARD_W + 100;
-  const trackHeight = CARD_H + 90;
+  const trackWidth = FAN_SPACING * (TOTAL_CARDS - 1) + CARD_W + 80;
+  const trackHeight = CARD_H + 70;
 
-  function getCardTransform(id, index) {
+  function getCardTransform(id, index, isSelected) {
     if (deckPhase === "piled") {
       return "translateX(0) translateY(0) rotate(0deg) scale(0.9)";
     }
@@ -168,7 +168,9 @@ export default function Home() {
         rot += 5;
       }
     }
-    return `translateX(${tx}px) translateY(${ty}px) rotate(${rot}deg)`;
+    // ใบที่เลือกแล้ว: หดตัวจางหายไปจากกอง (ไปโผล่ที่แถวไพ่ที่เลือกด้านล่างแทน) กันไม่ให้บังใบอื่น
+    const scale = isSelected ? 0.25 : 1;
+    return `translateX(${tx}px) translateY(${ty}px) rotate(${rot}deg) scale(${scale})`;
   }
 
   // ---------- เลือกไพ่ทีละใบจากกอง ----------
@@ -376,8 +378,8 @@ export default function Home() {
                       width: CARD_W,
                       height: CARD_H,
                       marginLeft: -CARD_W / 2,
-                      transform: getCardTransform(id, index),
-                      zIndex: isSelected ? 200 : index,
+                      transform: getCardTransform(id, index, isSelected),
+                      zIndex: index,
                     }}
                     onClick={() => !disabled && selectCard(id)}
                   >
@@ -387,6 +389,18 @@ export default function Home() {
               })}
             </div>
           </div>
+
+          {/* ไพ่ที่เลือกแล้ว เรียงเป็นแถวใต้กอง — เห็นชัด ไม่บังกัน */}
+          {selected.length > 0 && (
+            <div className="picked-row">
+              {selected.map((c, i) => (
+                <div className="picked-slot" key={i}>
+                  <div className="pos-label small">{c.pos?.th}</div>
+                  <TarotCard id={c.id} revealed className="size-sm is-open" />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="deck-controls">
             <button
