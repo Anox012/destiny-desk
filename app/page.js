@@ -204,6 +204,20 @@ export default function Home() {
   }
 
   // ---------- ทำนายด้วย AI (เรียก API route ฝั่ง server ที่ต่อ Gemini free tier) ----------
+  // แปลงรหัส error จาก API เป็นข้อความไทยที่บอกสาเหตุเจาะจง ให้ผู้ใช้/คนดูแลแก้ได้ตรงจุด
+  function aiErrorMessage(code) {
+    switch (code) {
+      case "no_api_key":
+        return "ยังไม่ได้ตั้งค่า GEMINI_API_KEY — เจ้าของเว็บต้องเพิ่ม API key ใน Vercel (Settings → Environment Variables) แล้ว Redeploy";
+      case "quota":
+        return "โควต้าฟรีของ Gemini วันนี้เต็มแล้ว ลองใหม่อีกครั้งพรุ่งนี้";
+      case "gemini_error":
+        return "เรียก Gemini ไม่สำเร็จ (อาจเป็นเพราะ API key ไม่ถูกต้อง หรือชื่อโมเดลเปลี่ยน) ลองตรวจสอบ key อีกครั้ง";
+      default:
+        return "ทำนายไม่สำเร็จตอนนี้ ลองใหม่อีกครั้งภายหลัง";
+    }
+  }
+
   async function requestAiReading() {
     if (selected.length === 0 || aiLoading) return;
     setAiLoading(true);
@@ -220,11 +234,12 @@ export default function Home() {
           cards: selected.map((c) => ({ name: c.name, pos: c.pos?.th, th: c.th })),
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429) throw new Error("quota");
       if (!res.ok || !data.text) throw new Error(data.error || "unknown");
       setAiText(data.text);
-    } catch (_) {
-      setAiError("ทำนายไม่สำเร็จตอนนี้ — โควต้าฟรีอาจเต็มหรือยังไม่ได้ตั้งค่า API key ลองใหม่อีกครั้งภายหลัง");
+    } catch (err) {
+      setAiError(aiErrorMessage(err?.message));
     } finally {
       setAiLoading(false);
     }
