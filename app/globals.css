@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ============================================================
    Destiny Desk — ธีม Art Nouveau : พาสเทล + ลายเส้นสีทอง
    ============================================================ */
@@ -560,94 +564,11 @@ body {
   animation: btnAura 4.5s ease-in-out infinite;
 }
 
-.deck-status {
-  display: flex;
-  justify-content: center;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-.deck-count {
-  font-family: "Cormorant Garamond", serif;
-  font-size: 34px;
-  font-weight: 700;
-  background: linear-gradient(90deg, #b8860b, #f3e3b0, #d4af37, #f3e3b0, #b8860b);
-  background-size: 220% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  animation: titleShimmer 6s linear infinite;
-}
-.deck-count-label {
-  font-size: 13px;
-  color: var(--brown);
-}
 .deck-hint {
   font-size: 13px;
   color: var(--brown);
   opacity: 0.8;
   margin: 0 0 20px;
-}
-
-.fan-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.fan-wrap {
-  overflow-x: auto;
-  overflow-y: visible;
-  padding: 22px 16px 34px;
-}
-/* มีหลายแถว (จอเล็ก) -> ลดระยะขอบบนล่างของแต่ละแถวลง กันกินพื้นที่แนวตั้งเกินไป */
-.fan-rows:has(.fan-wrap:nth-child(2)) .fan-wrap {
-  padding: 10px 12px 14px;
-}
-.fan-track {
-  position: relative;
-  margin: 0 auto;
-}
-.fan-card {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform-origin: bottom center;
-  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease, filter 0.2s ease;
-  cursor: pointer;
-}
-.fan-card .flip.size-fan {
-  width: 100%;
-  height: 100%;
-}
-.fan-card:hover:not(.is-picked) .flip {
-  transform: translateY(-16px);
-}
-.fan-card.is-picked {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ---------- แถวไพ่ที่เลือกแล้ว (โผล่ใต้กอง ระหว่างยังเลือกไม่ครบ) ---------- */
-.picked-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  justify-content: center;
-  margin: 4px auto 4px;
-  max-width: 900px;
-}
-.picked-slot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  animation: dealIn 0.5s both;
-}
-.pos-label.small {
-  font-size: 11px;
-  min-height: 0;
-  margin-bottom: 6px;
-  max-width: 110px;
 }
 
 .deck-controls {
@@ -772,7 +693,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .app-title,
   .deck-zone::before,
-  .deck-count,
   .card-slot.dealt,
   .section-title,
   .flip-inner:not(.flipped) .card-back .rune,
@@ -780,8 +700,7 @@ body {
   .popup {
     animation: none !important;
   }
-  .flip-inner,
-  .fan-card {
+  .flip-inner {
     transition: none !important;
   }
 }
@@ -825,15 +744,6 @@ body {
 
   .deck-zone {
     margin-top: 20px;
-  }
-  .fan-wrap {
-    padding: 16px 10px 24px;
-  }
-  .deck-count {
-    font-size: 28px;
-  }
-  .picked-row {
-    gap: 10px;
   }
 
   /* ไพ่ใบเดี่ยว/สามใบ ปรับให้พอดีจอ */

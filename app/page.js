@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Share2, Shuffle, Sparkles } from "lucide-react";
-import { CARDS, TOTAL_CARDS, getCardById } from "@/lib/cards";
+import { RotateCcw, Share2, Sparkles } from "lucide-react";
+import { TOTAL_CARDS, getCardById } from "@/lib/cards";
 import { SPREADS, PURPOSES, getSpread } from "@/lib/spreads";
 import Starfield from "@/components/Starfield";
+import TarotFan from "@/components/TarotFan";
 
 // ---------------------------------------------------------------------------
 // หน้าไพ่: ลองโหลด /tarotimages/{id}.jpg -> .png -> ถ้าไม่มีให้แสดงลายหลังไพ่
@@ -70,12 +71,9 @@ export default function Home() {
   const [purpose, setPurpose] = useState(PURPOSES[0].id);
   const [spreadId, setSpreadId] = useState("single");
 
-  // ---------- กองไพ่ (สำหรับกรีดเลือกทีละใบ) ----------
+  // ---------- กองไพ่ (สำหรับเลื่อนดูใน TarotFan) ----------
   const [deckOrder, setDeckOrder] = useState(() => [...Array(TOTAL_CARDS).keys()]);
-  const [deckPhase, setDeckPhase] = useState("fan"); // fan | exploding | piled | cutting
-  const [cutAt, setCutAt] = useState(null);
-  const [fanWidth, setFanWidth] = useState(320); // ความกว้างที่วัดได้จริงของกล่องกองไพ่
-  const [isMobile, setIsMobile] = useState(false); // จอเล็ก -> แบ่งกองไพ่เป็น 3 แถว ให้ไพ่แต่ละใบไม่เล็กเกินไป
+  const [deckVersion, setDeckVersion] = useState(0); // เพิ่มค่าเพื่อบังคับ remount TarotFan ตอนเริ่มใหม่
 
   const [stage, setStage] = useState("select"); // select | result
   const [selected, setSelected] = useState([]); // [{id, name, th, pos}]
@@ -92,46 +90,14 @@ export default function Home() {
   const purposeObj = PURPOSES.find((p) => p.id === purpose);
 
   const toastTimer = useRef(null);
-  const resultTimer = useRef(null);
-  const clearTimers = useRef([]);
-  const cutTimer = useRef(null);
-  const explodeVectors = useRef({});
-  const fanWrapRef = useRef(null);
 
   // สับไพ่ครั้งแรกฝั่ง client เท่านั้น (กัน hydration mismatch จาก Math.random)
   useEffect(() => {
     setDeckOrder(shuffleIds());
   }, []);
 
-  // วัดความกว้างจริงของกล่องกองไพ่ ให้กองไพ่ยืด/หดพอดีเสมอ ไม่ล้นต้องเลื่อนจอ
-  useEffect(() => {
-    const el = fanWrapRef.current;
-    if (!el) return;
-    const update = () => setFanWidth(el.clientWidth);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-    };
-  }, []);
-
-  // จอเล็ก -> แบ่งกองไพ่เป็นหลายแถว
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 760px)");
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-
   // เปลี่ยนรูปแบบการวางไพ่ -> เริ่มเลือกใหม่
   useEffect(() => {
-    clearTimeout(resultTimer.current);
     setSelected([]);
     setStage("select");
     setAiText("");
@@ -146,14 +112,9 @@ export default function Home() {
     } catch (_) {}
   }, []);
 
-  // เคลียร์ timer ทั้งหมดตอนเลิกใช้หน้า
+  // เคลียร์ timer ตอนเลิกใช้หน้า
   useEffect(() => {
-    return () => {
-      clearTimeout(toastTimer.current);
-      clearTimeout(resultTimer.current);
-      clearTimeout(cutTimer.current);
-      clearTimers.current.forEach(clearTimeout);
-    };
+    return () => clearTimeout(toastTimer.current);
   }, []);
 
   function showToast(msg) {
@@ -162,129 +123,25 @@ export default function Home() {
     toastTimer.current = setTimeout(() => setToast(""), 2200);
   }
 
-  // ---------- เรขาคณิตของกองไพ่ที่กรีดเป็นแถว: คำนวณให้พอดีความกว้างจริงเสมอ ----------
-  // จอเล็ก -> แบ่งเป็น 3 แถว ให้ไพ่แต่ละใบมีขนาดใหญ่พอมองเห็น/แตะง่าย แทนที่จะยัดทั้ง 80 ใบแถวเดียว
-  const rows = isMobile ? 3 : 1;
-  const perRow = Math.ceil(TOTAL_CARDS / rows);
-  const rowChunks = useMemo(() => {
-    const chunks = [];
-    for (let r = 0; r < rows; r++) {
-      chunks.push(deckOrder.slice(r * perRow, (r + 1) * perRow));
-    }
-    return chunks;
-  }, [deckOrder, rows, perRow]);
-
-  // เผื่อระยะขอบไว้สำหรับมุมไพ่ที่หมุนเอียงตรงปลายกอง ไม่ให้ล้นออกนอกกล่อง
-  const usableWidth = Math.max(200, fanWidth - 90);
-  const CARD_W =
-    rows === 1
-      ? Math.max(40, Math.min(88, usableWidth / 8))
-      : Math.max(56, Math.min(110, usableWidth / 3.6));
-  const CARD_H = CARD_W * 1.5;
-  const FAN_SPACING = (usableWidth - CARD_W) / (perRow - 1);
-  const FAN_CENTER = (perRow - 1) / 2;
-  const FAN_ANGLE = 18 / FAN_CENTER; // มุมกางสูงสุดที่ปลายกองราว ±18 องศา ไม่ให้มุมไพ่แกว่งล้นขอบ
-  const trackWidth = usableWidth;
-  const trackHeight = CARD_H + (rows === 1 ? 60 : 40);
-
-  // localIndex = ตำแหน่งของใบนี้ภายในแถวของตัวเอง (คุมส่วนโค้งของแถว)
-  // globalIndex = ตำแหน่งจริงในกองทั้งสำรับ (ใช้เทียบจุดตัดตอนตัดไพ่ ซึ่งตัดข้ามทั้งกอง ไม่ใช่ทีละแถว)
-  function getCardTransform(id, localIndex, globalIndex, isSelected) {
-    if (deckPhase === "piled") {
-      return "translateX(0) translateY(0) rotate(0deg) scale(0.9)";
-    }
-    if (deckPhase === "exploding") {
-      const v = explodeVectors.current[id] || { dx: 0, dy: 0, rot: 0 };
-      return `translateX(${v.dx}px) translateY(${v.dy}px) rotate(${v.rot}deg) scale(0.85)`;
-    }
-    const offset = localIndex - FAN_CENTER;
-    let tx = offset * FAN_SPACING;
-    let ty = 0;
-    let rot = offset * FAN_ANGLE;
-    if (deckPhase === "cutting" && cutAt != null) {
-      if (globalIndex < cutAt) {
-        tx -= 18;
-        ty -= 42;
-        rot -= 5;
-      } else {
-        tx += 18;
-        ty += 42;
-        rot += 5;
-      }
-    }
-    // ใบที่เลือกแล้ว: หดตัวจางหายไปจากกอง (ไปโผล่ที่แถวไพ่ที่เลือกด้านล่างแทน) กันไม่ให้บังใบอื่น
-    const scale = isSelected ? 0.25 : 1;
-    return `translateX(${tx}px) translateY(${ty}px) rotate(${rot}deg) scale(${scale})`;
+  // ---------- ยืนยันไพ่ที่เลือกจาก TarotFan ----------
+  function handleFanConfirm(ids) {
+    const picked = ids.map((id, i) => ({ ...getCardById(id), pos: spread.positions[i] }));
+    setSelected(picked);
+    setStage("result");
+    saveToJournal(picked);
   }
 
-  // ---------- เลือกไพ่ทีละใบจากกอง ----------
-  function selectCard(id) {
-    if (stage !== "select" || deckPhase !== "fan") return;
-
-    setSelected((prev) => {
-      if (prev.some((s) => s.id === id)) return prev;
-      if (prev.length >= spread.count) return prev;
-
-      const pos = spread.positions[prev.length];
-      const card = getCardById(id);
-      const next = [...prev, { ...card, pos }];
-
-      if (next.length === spread.count) {
-        resultTimer.current = setTimeout(() => {
-          setStage("result");
-          saveToJournal(next);
-        }, 900);
-      }
-      return next;
-    });
-  }
-
-  // ---------- ล้างไพ่: ระเบิดออก -> รวมกอง -> กรีดใหม่ ----------
+  // ---------- เริ่มใหม่: สับไพ่ใหม่ + รีเซ็ต TarotFan ----------
   function handleClearDeck() {
-    if (deckPhase !== "fan") return;
-    clearTimeout(resultTimer.current);
     setPopup(null);
     setStage("select");
     setSelected([]);
     setAiText("");
     setAiError("");
     setAiLoading(false);
-
-    const vectors = {};
-    deckOrder.forEach((id) => {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 260 + Math.random() * 260;
-      vectors[id] = { dx: Math.cos(angle) * dist, dy: Math.sin(angle) * dist, rot: Math.random() * 520 - 260 };
-    });
-    explodeVectors.current = vectors;
-    setDeckPhase("exploding");
-
-    clearTimers.current.forEach(clearTimeout);
-    clearTimers.current = [
-      setTimeout(() => {
-        setDeckOrder(shuffleIds());
-        setDeckPhase("piled");
-      }, 620),
-      setTimeout(() => {
-        setDeckPhase("fan");
-      }, 1140),
-    ];
-    showToast("ล้างไพ่แล้ว ✷ เลือกใหม่ได้เลย");
-  }
-
-  // ---------- ตัดไพ่ ----------
-  function handleCutDeck() {
-    if (deckPhase !== "fan" || selected.length > 0) return;
-    const n = deckOrder.length;
-    const cut = 15 + Math.floor(Math.random() * (n - 30));
-    setCutAt(cut);
-    setDeckPhase("cutting");
-    cutTimer.current = setTimeout(() => {
-      setDeckOrder((d) => [...d.slice(cut), ...d.slice(0, cut)]);
-      setDeckPhase("fan");
-      setCutAt(null);
-    }, 420);
-    showToast("ตัดไพ่แล้ว ✷");
+    setDeckOrder(shuffleIds());
+    setDeckVersion((v) => v + 1);
+    showToast("เริ่มใหม่แล้ว ✷ เลือกไพ่ได้เลย");
   }
 
   function saveToJournal(picked) {
@@ -427,71 +284,23 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- โซนกรีดไพ่เลือกทีละใบ ---------- */}
+      {/* ---------- โซนพัดไพ่ (TarotFan) เลื่อนดูแล้วแตะใบกลางเพื่อเลือก ---------- */}
       {stage === "select" && (
         <section className="deck-zone">
-          <div className="deck-status">
-            <span className="deck-count">
-              {selected.length}/{spread.count}
-            </span>
-            <span className="deck-count-label">ใบที่เลือกแล้ว</span>
-          </div>
-          <p className="deck-hint">แตะไพ่ในกองเพื่อเลือกทีละใบ — {spread.th}</p>
+          <p className="deck-hint">เลื่อนดูด้วยลูกศร/ปัดนิ้ว แล้วแตะไพ่ใบกลางเพื่อเลือก — {spread.th}</p>
 
-          <div className="fan-rows">
-            {rowChunks.map((chunk, r) => (
-              <div className="fan-wrap" ref={r === 0 ? fanWrapRef : null} key={r}>
-                <div className="fan-track" style={{ width: trackWidth, height: trackHeight }}>
-                  {chunk.map((id, localIndex) => {
-                    const globalIndex = r * perRow + localIndex;
-                    const isSelected = selected.some((s) => s.id === id);
-                    const disabled = isSelected || selected.length >= spread.count || deckPhase !== "fan";
-                    return (
-                      <div
-                        key={id}
-                        className={`fan-card${isSelected ? " is-picked" : ""}`}
-                        style={{
-                          width: CARD_W,
-                          height: CARD_H,
-                          marginLeft: -CARD_W / 2,
-                          transform: getCardTransform(id, localIndex, globalIndex, isSelected),
-                          zIndex: localIndex,
-                        }}
-                        onClick={() => !disabled && selectCard(id)}
-                      >
-                        <TarotCard id={id} revealed={isSelected} className="size-fan" />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* ไพ่ที่เลือกแล้ว เรียงเป็นแถวใต้กอง — เห็นชัด ไม่บังกัน */}
-          {selected.length > 0 && (
-            <div className="picked-row">
-              {selected.map((c, i) => (
-                <div className="picked-slot" key={i}>
-                  <div className="pos-label small">{c.pos?.th}</div>
-                  <TarotCard id={c.id} revealed className="size-sm is-open" />
-                </div>
-              ))}
-            </div>
-          )}
+          <TarotFan
+            key={`${spreadId}-${deckVersion}`}
+            deck={deckOrder}
+            maxSelect={spread.count}
+            positions={spread.positions}
+            onConfirm={handleFanConfirm}
+          />
 
           <div className="deck-controls">
-            <button
-              className="btn-deck"
-              onClick={handleCutDeck}
-              disabled={selected.length > 0 || deckPhase !== "fan"}
-            >
-              <Shuffle size={16} strokeWidth={2.2} aria-hidden="true" />
-              ตัดไพ่
-            </button>
-            <button className="btn-deck" onClick={handleClearDeck} disabled={deckPhase !== "fan"}>
+            <button className="btn-deck" onClick={handleClearDeck}>
               <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
-              ล้างไพ่
+              เริ่มใหม่
             </button>
           </div>
         </section>
