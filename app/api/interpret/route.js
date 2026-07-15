@@ -3,7 +3,9 @@
 // endpoint นี้เป็น URL สาธารณะ ใครก็ยิงตรงได้ (ไม่ใช่แค่ผ่านหน้าเว็บ) จึงเช็ค origin +
 // จำกัดรูปร่าง/ขนาด payload คร่าวๆ กันสแปมยิงรัวๆ จนโควต้าฟรีหมดเร็วเกินไป — ไม่ใช่การยืนยันตัวตนที่รัดกุม
 
-const MODEL = "gemini-2.0-flash";
+// ลองหลายโมเดลตามลำดับ: ถ้าตัวแรกโดนจำกัดโควต้า (429) ก็ขยับไปตัวที่ free tier ใจกว้างกว่า
+// gemini-2.0-flash-lite / 1.5-flash มักมีโควต้าฟรีต่อวันสูงกว่า 2.0-flash
+const MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"];
 const ALLOWED_CARD_COUNTS = [1, 3, 10];
 const MAX_FIELD_LEN = 400;
 
@@ -61,34 +63,49 @@ ${cardLines}
 กรุณาวิเคราะห์ความหมายไพ่ทั้งหมด โดยเชื่อมโยงกับคำถามของผู้ถามจริง ๆ เขียนให้กระชับ ไม่เกิน 5 ย่อหน้าสั้น ๆ
 ปิดท้ายด้วยการย้ำว่าไพ่เป็นเพียงเครื่องมือสะท้อนทางเลือก ให้ผู้ใช้เป็นผู้ตัดสินใจเอง ไม่ใช่คำแนะนำทางกฎหมาย การแพทย์ หรือการเงิน`;
 
-  let resp;
-  try {
-    resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 700, temperature: 0.85 },
-        }),
-      }
-    );
-  } catch (_) {
-    return Response.json({ error: "network_error" }, { status: 502 });
+  const requestBody = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens: 700, temperature: 0.85 },
+  });
+
+  let lastStatus = 502;
+  let lastDetail = "";
+
+  for (const model of MODELS) {
+    let resp;
+    try {
+      resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+        }
+      );
+    } catch (_) {
+      return Response.json({ error: "network_error" }, { status: 502 });
+    }
+
+    if (resp.ok) {
+      const data = await resp.json();
+      const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("").trim();
+      if (text) return Response.json({ text });
+      lastStatus = 502;
+      lastDetail = "empty_response";
+      continue; // คำตอบว่าง ลองโมเดลถัดไป
+    }
+
+    // ดึงเหตุผลจริงจาก Gemini มาไว้ช่วย debug (message/status ของ 4xx ไม่ใช่ข้อมูลลับ)
+    const errBody = await resp.json().catch(() => null);
+    lastStatus = resp.status;
+    lastDetail = errBody?.error?.message || errBody?.error?.status || `http_${resp.status}`;
+    console.error(`[interpret] ${model} -> ${resp.status}: ${lastDetail}`);
+
+    // 429 = โดนจำกัดโควต้า/เรตของโมเดลนี้ ลองโมเดลถัดไปที่ free tier ใจกว้างกว่า
+    // error อื่น (400 key ผิด, 403 ฯลฯ) ไม่ต้องลองต่อ เพราะจะเจอเหมือนเดิมทุกโมเดล
+    if (resp.status !== 429) break;
   }
 
-  if (!resp.ok) {
-    const status = resp.status === 429 ? 429 : 502;
-    return Response.json({ error: "gemini_error" }, { status });
-  }
-
-  const data = await resp.json();
-  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("").trim();
-
-  if (!text) {
-    return Response.json({ error: "empty_response" }, { status: 502 });
-  }
-
-  return Response.json({ text });
+  const status = lastStatus === 429 ? 429 : 502;
+  return Response.json({ error: "gemini_error", detail: lastDetail }, { status });
 }

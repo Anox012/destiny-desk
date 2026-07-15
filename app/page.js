@@ -205,14 +205,16 @@ export default function Home() {
 
   // ---------- ทำนายด้วย AI (เรียก API route ฝั่ง server ที่ต่อ Gemini free tier) ----------
   // แปลงรหัส error จาก API เป็นข้อความไทยที่บอกสาเหตุเจาะจง ให้ผู้ใช้/คนดูแลแก้ได้ตรงจุด
-  function aiErrorMessage(code) {
+  function aiErrorMessage(code, detail) {
+    // แนบเหตุผลจริงจาก Gemini (ถ้ามี) ต่อท้าย ช่วย debug เวลาปัญหาไม่ตรงกับที่คาด
+    const suffix = detail ? ` [${detail}]` : "";
     switch (code) {
       case "no_api_key":
         return "ยังไม่ได้ตั้งค่า GEMINI_API_KEY — เจ้าของเว็บต้องเพิ่ม API key ใน Vercel (Settings → Environment Variables) แล้ว Redeploy";
       case "quota":
-        return "โควต้าฟรีของ Gemini วันนี้เต็มแล้ว ลองใหม่อีกครั้งพรุ่งนี้";
+        return "โควต้าฟรีของ Gemini เต็มชั่วคราว (อาจเป็นการจำกัดต่อนาที ลองใหม่อีกครั้งใน 1 นาที)" + suffix;
       case "gemini_error":
-        return "เรียก Gemini ไม่สำเร็จ (อาจเป็นเพราะ API key ไม่ถูกต้อง หรือชื่อโมเดลเปลี่ยน) ลองตรวจสอบ key อีกครั้ง";
+        return "เรียก Gemini ไม่สำเร็จ (อาจเพราะ API key ไม่ถูกต้อง/ยังไม่เปิดใช้ Generative Language API)" + suffix;
       default:
         return "ทำนายไม่สำเร็จตอนนี้ ลองใหม่อีกครั้งภายหลัง";
     }
@@ -235,11 +237,14 @@ export default function Home() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 429) throw new Error("quota");
-      if (!res.ok || !data.text) throw new Error(data.error || "unknown");
-      setAiText(data.text);
-    } catch (err) {
-      setAiError(aiErrorMessage(err?.message));
+      if (res.ok && data.text) {
+        setAiText(data.text);
+        return;
+      }
+      const code = res.status === 429 ? "quota" : data.error || "unknown";
+      setAiError(aiErrorMessage(code, data.detail));
+    } catch (_) {
+      setAiError(aiErrorMessage("unknown"));
     } finally {
       setAiLoading(false);
     }
