@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ============================================================
    Destiny Desk — ธีม Art Nouveau : พาสเทล + ลายเส้นสีทอง
    ============================================================ */
@@ -111,7 +115,8 @@ body {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
@@ -123,9 +128,14 @@ body {
   outline: none;
 }
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+.field textarea {
+  resize: vertical;
+  min-height: 46px;
 }
 
 /* ---------- ปุ่ม ---------- */
@@ -213,8 +223,51 @@ body {
   background: linear-gradient(160deg, var(--gold-light), var(--gold));
   box-shadow: 0 6px 0 #8a6608, 0 10px 18px rgba(160, 120, 20, 0.3);
 }
+.btn-ai {
+  color: #fff;
+  border-color: var(--purple);
+  background: linear-gradient(160deg, #6a2ca8, var(--purple) 55%, #4b1c7a);
+  box-shadow: 0 6px 0 #3c1566, 0 10px 18px rgba(74, 28, 122, 0.35);
+}
 .result-actions {
   margin-top: 34px;
+}
+
+/* ---------- คำทำนายจาก AI ---------- */
+.ai-error {
+  text-align: center;
+  font-size: 13px;
+  color: #a13b3b;
+  max-width: 480px;
+  margin: 14px auto 0;
+  line-height: 1.6;
+}
+.ai-reading {
+  max-width: 620px;
+  margin: 24px auto 0;
+  padding: 22px 24px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--gold-soft);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(120, 90, 30, 0.12);
+  animation: dealIn 0.5s both;
+}
+.ai-reading-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 22px;
+  color: var(--gold);
+  margin: 0 0 12px;
+}
+.ai-reading-text {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  margin: 0;
 }
 
 /* ---------- โซนแสดงไพ่ (ด้านล่าง) ---------- */
@@ -511,85 +564,11 @@ body {
   animation: btnAura 4.5s ease-in-out infinite;
 }
 
-.deck-status {
-  display: flex;
-  justify-content: center;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-.deck-count {
-  font-family: "Cormorant Garamond", serif;
-  font-size: 34px;
-  font-weight: 700;
-  background: linear-gradient(90deg, #b8860b, #f3e3b0, #d4af37, #f3e3b0, #b8860b);
-  background-size: 220% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  animation: titleShimmer 6s linear infinite;
-}
-.deck-count-label {
-  font-size: 13px;
-  color: var(--brown);
-}
 .deck-hint {
   font-size: 13px;
   color: var(--brown);
   opacity: 0.8;
   margin: 0 0 20px;
-}
-
-.fan-wrap {
-  overflow-x: auto;
-  overflow-y: visible;
-  padding: 22px 16px 34px;
-}
-.fan-track {
-  position: relative;
-  margin: 0 auto;
-}
-.fan-card {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform-origin: bottom center;
-  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease, filter 0.2s ease;
-  cursor: pointer;
-}
-.fan-card .flip.size-fan {
-  width: 100%;
-  height: 100%;
-}
-.fan-card:hover:not(.is-picked) .flip {
-  transform: translateY(-16px);
-}
-.fan-card.is-picked {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ---------- แถวไพ่ที่เลือกแล้ว (โผล่ใต้กอง ระหว่างยังเลือกไม่ครบ) ---------- */
-.picked-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  justify-content: center;
-  margin: 4px auto 4px;
-  max-width: 900px;
-}
-.picked-slot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  animation: dealIn 0.5s both;
-}
-.pos-label.small {
-  font-size: 11px;
-  min-height: 0;
-  margin-bottom: 6px;
-  max-width: 110px;
 }
 
 .deck-controls {
@@ -714,7 +693,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .app-title,
   .deck-zone::before,
-  .deck-count,
   .card-slot.dealt,
   .section-title,
   .flip-inner:not(.flipped) .card-back .rune,
@@ -722,8 +700,7 @@ body {
   .popup {
     animation: none !important;
   }
-  .flip-inner,
-  .fan-card {
+  .flip-inner {
     transition: none !important;
   }
 }
@@ -767,15 +744,6 @@ body {
 
   .deck-zone {
     margin-top: 20px;
-  }
-  .fan-wrap {
-    padding: 16px 10px 24px;
-  }
-  .deck-count {
-    font-size: 28px;
-  }
-  .picked-row {
-    gap: 10px;
   }
 
   /* ไพ่ใบเดี่ยว/สามใบ ปรับให้พอดีจอ */

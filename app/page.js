@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Share2, Shuffle } from "lucide-react";
-import { CARDS, TOTAL_CARDS, getCardById } from "@/lib/cards";
+import { RotateCcw, Share2, Sparkles } from "lucide-react";
+import { TOTAL_CARDS, getCardById } from "@/lib/cards";
 import { SPREADS, PURPOSES, getSpread } from "@/lib/spreads";
 import Starfield from "@/components/Starfield";
+import TarotFan from "@/components/TarotFan";
 
 // ---------------------------------------------------------------------------
 // หน้าไพ่: ลองโหลด /tarotimages/{id}.jpg -> .png -> ถ้าไม่มีให้แสดงลายหลังไพ่
@@ -66,14 +67,13 @@ function shuffleIds() {
 
 export default function Home() {
   const [userName, setUserName] = useState("");
+  const [question, setQuestion] = useState("");
   const [purpose, setPurpose] = useState(PURPOSES[0].id);
   const [spreadId, setSpreadId] = useState("single");
 
-  // ---------- กองไพ่ (สำหรับกรีดเลือกทีละใบ) ----------
+  // ---------- กองไพ่ (สำหรับเลื่อนดูใน TarotFan) ----------
   const [deckOrder, setDeckOrder] = useState(() => [...Array(TOTAL_CARDS).keys()]);
-  const [deckPhase, setDeckPhase] = useState("fan"); // fan | exploding | piled | cutting
-  const [cutAt, setCutAt] = useState(null);
-  const [fanWidth, setFanWidth] = useState(320); // ความกว้างที่วัดได้จริงของกล่องกองไพ่
+  const [deckVersion, setDeckVersion] = useState(0); // เพิ่มค่าเพื่อบังคับ remount TarotFan ตอนเริ่มใหม่
 
   const [stage, setStage] = useState("select"); // select | result
   const [selected, setSelected] = useState([]); // [{id, name, th, pos}]
@@ -81,43 +81,27 @@ export default function Home() {
   const [toast, setToast] = useState("");
   const [journal, setJournal] = useState([]);
 
+  // ---------- ทำนายด้วย AI (Gemini free tier) ----------
+  const [aiText, setAiText] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
   const spread = useMemo(() => getSpread(spreadId), [spreadId]);
   const purposeObj = PURPOSES.find((p) => p.id === purpose);
 
   const toastTimer = useRef(null);
-  const resultTimer = useRef(null);
-  const clearTimers = useRef([]);
-  const cutTimer = useRef(null);
-  const explodeVectors = useRef({});
-  const fanWrapRef = useRef(null);
 
   // สับไพ่ครั้งแรกฝั่ง client เท่านั้น (กัน hydration mismatch จาก Math.random)
   useEffect(() => {
     setDeckOrder(shuffleIds());
   }, []);
 
-  // วัดความกว้างจริงของกล่องกองไพ่ ให้กองไพ่ยืด/หดพอดีเสมอ ไม่ล้นต้องเลื่อนจอ
-  useEffect(() => {
-    const el = fanWrapRef.current;
-    if (!el) return;
-    const update = () => setFanWidth(el.clientWidth);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-    };
-  }, []);
-
   // เปลี่ยนรูปแบบการวางไพ่ -> เริ่มเลือกใหม่
   useEffect(() => {
-    clearTimeout(resultTimer.current);
     setSelected([]);
     setStage("select");
+    setAiText("");
+    setAiError("");
   }, [spreadId]);
 
   // โหลดประวัติจาก LocalStorage
@@ -128,14 +112,9 @@ export default function Home() {
     } catch (_) {}
   }, []);
 
-  // เคลียร์ timer ทั้งหมดตอนเลิกใช้หน้า
+  // เคลียร์ timer ตอนเลิกใช้หน้า
   useEffect(() => {
-    return () => {
-      clearTimeout(toastTimer.current);
-      clearTimeout(resultTimer.current);
-      clearTimeout(cutTimer.current);
-      clearTimers.current.forEach(clearTimeout);
-    };
+    return () => clearTimeout(toastTimer.current);
   }, []);
 
   function showToast(msg) {
@@ -144,111 +123,25 @@ export default function Home() {
     toastTimer.current = setTimeout(() => setToast(""), 2200);
   }
 
-  // ---------- เรขาคณิตของกองไพ่ที่กรีดเป็นแถว: คำนวณให้พอดีความกว้างจริงเสมอ ----------
-  // เผื่อระยะขอบไว้สำหรับมุมไพ่ที่หมุนเอียงตรงปลายกอง ไม่ให้ล้นออกนอกกล่อง
-  const usableWidth = Math.max(200, fanWidth - 90);
-  const CARD_W = Math.max(40, Math.min(88, usableWidth / 8));
-  const CARD_H = CARD_W * 1.5;
-  const FAN_SPACING = (usableWidth - CARD_W) / (TOTAL_CARDS - 1);
-  const FAN_CENTER = (TOTAL_CARDS - 1) / 2;
-  const FAN_ANGLE = 18 / FAN_CENTER; // มุมกางสูงสุดที่ปลายกองราว ±18 องศา ไม่ให้มุมไพ่แกว่งล้นขอบ
-  const trackWidth = usableWidth;
-  const trackHeight = CARD_H + 60;
-
-  function getCardTransform(id, index, isSelected) {
-    if (deckPhase === "piled") {
-      return "translateX(0) translateY(0) rotate(0deg) scale(0.9)";
-    }
-    if (deckPhase === "exploding") {
-      const v = explodeVectors.current[id] || { dx: 0, dy: 0, rot: 0 };
-      return `translateX(${v.dx}px) translateY(${v.dy}px) rotate(${v.rot}deg) scale(0.85)`;
-    }
-    const center = (TOTAL_CARDS - 1) / 2;
-    const offset = index - center;
-    let tx = offset * FAN_SPACING;
-    let ty = 0;
-    let rot = offset * FAN_ANGLE;
-    if (deckPhase === "cutting" && cutAt != null) {
-      if (index < cutAt) {
-        tx -= 18;
-        ty -= 42;
-        rot -= 5;
-      } else {
-        tx += 18;
-        ty += 42;
-        rot += 5;
-      }
-    }
-    // ใบที่เลือกแล้ว: หดตัวจางหายไปจากกอง (ไปโผล่ที่แถวไพ่ที่เลือกด้านล่างแทน) กันไม่ให้บังใบอื่น
-    const scale = isSelected ? 0.25 : 1;
-    return `translateX(${tx}px) translateY(${ty}px) rotate(${rot}deg) scale(${scale})`;
+  // ---------- ยืนยันไพ่ที่เลือกจาก TarotFan ----------
+  function handleFanConfirm(ids) {
+    const picked = ids.map((id, i) => ({ ...getCardById(id), pos: spread.positions[i] }));
+    setSelected(picked);
+    setStage("result");
+    saveToJournal(picked);
   }
 
-  // ---------- เลือกไพ่ทีละใบจากกอง ----------
-  function selectCard(id) {
-    if (stage !== "select" || deckPhase !== "fan") return;
-
-    setSelected((prev) => {
-      if (prev.some((s) => s.id === id)) return prev;
-      if (prev.length >= spread.count) return prev;
-
-      const pos = spread.positions[prev.length];
-      const card = getCardById(id);
-      const next = [...prev, { ...card, pos }];
-
-      if (next.length === spread.count) {
-        resultTimer.current = setTimeout(() => {
-          setStage("result");
-          saveToJournal(next);
-        }, 900);
-      }
-      return next;
-    });
-  }
-
-  // ---------- ล้างไพ่: ระเบิดออก -> รวมกอง -> กรีดใหม่ ----------
+  // ---------- เริ่มใหม่: สับไพ่ใหม่ + รีเซ็ต TarotFan ----------
   function handleClearDeck() {
-    if (deckPhase !== "fan") return;
-    clearTimeout(resultTimer.current);
     setPopup(null);
     setStage("select");
     setSelected([]);
-
-    const vectors = {};
-    deckOrder.forEach((id) => {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 260 + Math.random() * 260;
-      vectors[id] = { dx: Math.cos(angle) * dist, dy: Math.sin(angle) * dist, rot: Math.random() * 520 - 260 };
-    });
-    explodeVectors.current = vectors;
-    setDeckPhase("exploding");
-
-    clearTimers.current.forEach(clearTimeout);
-    clearTimers.current = [
-      setTimeout(() => {
-        setDeckOrder(shuffleIds());
-        setDeckPhase("piled");
-      }, 620),
-      setTimeout(() => {
-        setDeckPhase("fan");
-      }, 1140),
-    ];
-    showToast("ล้างไพ่แล้ว ✷ เลือกใหม่ได้เลย");
-  }
-
-  // ---------- ตัดไพ่ ----------
-  function handleCutDeck() {
-    if (deckPhase !== "fan" || selected.length > 0) return;
-    const n = deckOrder.length;
-    const cut = 15 + Math.floor(Math.random() * (n - 30));
-    setCutAt(cut);
-    setDeckPhase("cutting");
-    cutTimer.current = setTimeout(() => {
-      setDeckOrder((d) => [...d.slice(cut), ...d.slice(0, cut)]);
-      setDeckPhase("fan");
-      setCutAt(null);
-    }, 420);
-    showToast("ตัดไพ่แล้ว ✷");
+    setAiText("");
+    setAiError("");
+    setAiLoading(false);
+    setDeckOrder(shuffleIds());
+    setDeckVersion((v) => v + 1);
+    showToast("เริ่มใหม่แล้ว ✷ เลือกไพ่ได้เลย");
   }
 
   function saveToJournal(picked) {
@@ -310,6 +203,48 @@ export default function Home() {
     showToast(ok ? "คัดลอกผลไพ่แล้ว ✓ นำไปวางแชร์ให้เพื่อนได้เลย" : "คัดลอกไม่สำเร็จ ลองอีกครั้ง");
   }
 
+  // ---------- ทำนายด้วย AI (เรียก API route ฝั่ง server ที่ต่อ Gemini free tier) ----------
+  // แปลงรหัส error จาก API เป็นข้อความไทยที่บอกสาเหตุเจาะจง ให้ผู้ใช้/คนดูแลแก้ได้ตรงจุด
+  function aiErrorMessage(code) {
+    switch (code) {
+      case "no_api_key":
+        return "ยังไม่ได้ตั้งค่า GEMINI_API_KEY — เจ้าของเว็บต้องเพิ่ม API key ใน Vercel (Settings → Environment Variables) แล้ว Redeploy";
+      case "quota":
+        return "โควต้าฟรีของ Gemini วันนี้เต็มแล้ว ลองใหม่อีกครั้งพรุ่งนี้";
+      case "gemini_error":
+        return "เรียก Gemini ไม่สำเร็จ (อาจเป็นเพราะ API key ไม่ถูกต้อง หรือชื่อโมเดลเปลี่ยน) ลองตรวจสอบ key อีกครั้ง";
+      default:
+        return "ทำนายไม่สำเร็จตอนนี้ ลองใหม่อีกครั้งภายหลัง";
+    }
+  }
+
+  async function requestAiReading() {
+    if (selected.length === 0 || aiLoading) return;
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const res = await fetch("/api/interpret", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userName,
+          purpose: purposeObj?.label,
+          question,
+          spreadLabel: spread.label,
+          cards: selected.map((c) => ({ name: c.name, pos: c.pos?.th, th: c.th })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429) throw new Error("quota");
+      if (!res.ok || !data.text) throw new Error(data.error || "unknown");
+      setAiText(data.text);
+    } catch (err) {
+      setAiError(aiErrorMessage(err?.message));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   return (
     <main className="app">
       <Starfield />
@@ -352,69 +287,35 @@ export default function Home() {
               ))}
             </select>
           </div>
+
+          <div className="field">
+            <label>คำถามของคุณ (ไม่บังคับ)</label>
+            <textarea
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="ใส่ไว้ถ้าอยากให้ AI ทำนายเจาะจงขึ้น เช่น ความสัมพันธ์นี้จะเป็นอย่างไรต่อไป"
+            />
+          </div>
         </div>
       </section>
 
-      {/* ---------- โซนกรีดไพ่เลือกทีละใบ ---------- */}
+      {/* ---------- โซนพัดไพ่ (TarotFan) เลื่อนดูแล้วแตะใบกลางเพื่อเลือก ---------- */}
       {stage === "select" && (
         <section className="deck-zone">
-          <div className="deck-status">
-            <span className="deck-count">
-              {selected.length}/{spread.count}
-            </span>
-            <span className="deck-count-label">ใบที่เลือกแล้ว</span>
-          </div>
-          <p className="deck-hint">แตะไพ่ในกองเพื่อเลือกทีละใบ — {spread.th}</p>
+          <p className="deck-hint">เลื่อนดูด้วยลูกศร/ปัดนิ้ว แล้วแตะไพ่ใบกลางเพื่อเลือก — {spread.th}</p>
 
-          <div className="fan-wrap" ref={fanWrapRef}>
-            <div className="fan-track" style={{ width: trackWidth, height: trackHeight }}>
-              {deckOrder.map((id, index) => {
-                const isSelected = selected.some((s) => s.id === id);
-                const disabled = isSelected || selected.length >= spread.count || deckPhase !== "fan";
-                return (
-                  <div
-                    key={id}
-                    className={`fan-card${isSelected ? " is-picked" : ""}`}
-                    style={{
-                      width: CARD_W,
-                      height: CARD_H,
-                      marginLeft: -CARD_W / 2,
-                      transform: getCardTransform(id, index, isSelected),
-                      zIndex: index,
-                    }}
-                    onClick={() => !disabled && selectCard(id)}
-                  >
-                    <TarotCard id={id} revealed={isSelected} className="size-fan" />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ไพ่ที่เลือกแล้ว เรียงเป็นแถวใต้กอง — เห็นชัด ไม่บังกัน */}
-          {selected.length > 0 && (
-            <div className="picked-row">
-              {selected.map((c, i) => (
-                <div className="picked-slot" key={i}>
-                  <div className="pos-label small">{c.pos?.th}</div>
-                  <TarotCard id={c.id} revealed className="size-sm is-open" />
-                </div>
-              ))}
-            </div>
-          )}
+          <TarotFan
+            key={`${spreadId}-${deckVersion}`}
+            deck={deckOrder}
+            maxSelect={spread.count}
+            positions={spread.positions}
+            onConfirm={handleFanConfirm}
+          />
 
           <div className="deck-controls">
-            <button
-              className="btn-deck"
-              onClick={handleCutDeck}
-              disabled={selected.length > 0 || deckPhase !== "fan"}
-            >
-              <Shuffle size={16} strokeWidth={2.2} aria-hidden="true" />
-              ตัดไพ่
-            </button>
-            <button className="btn-deck" onClick={handleClearDeck} disabled={deckPhase !== "fan"}>
+            <button className="btn-deck" onClick={handleClearDeck}>
               <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
-              ล้างไพ่
+              เริ่มใหม่
             </button>
           </div>
         </section>
@@ -472,6 +373,12 @@ export default function Home() {
           )}
 
           <div className="actions result-actions">
+            {!aiText && (
+              <button className="btn-deck btn-ai" onClick={requestAiReading} disabled={aiLoading}>
+                <Sparkles size={16} strokeWidth={2.2} aria-hidden="true" />
+                {aiLoading ? "กำลังทำนาย..." : "ทำนายด้วย AI"}
+              </button>
+            )}
             <button className="btn-deck btn-share" onClick={shareResult}>
               <Share2 size={16} strokeWidth={2.2} aria-hidden="true" />
               แชร์ผลไพ่
@@ -481,6 +388,17 @@ export default function Home() {
               เลือกไพ่ใหม่
             </button>
           </div>
+
+          {aiError && <p className="ai-error">{aiError}</p>}
+          {aiText && (
+            <div className="ai-reading">
+              <h3 className="ai-reading-title">
+                <Sparkles size={18} strokeWidth={2.2} aria-hidden="true" />
+                คำทำนายจาก AI
+              </h3>
+              <p className="ai-reading-text">{aiText}</p>
+            </div>
+          )}
         </section>
       )}
 
