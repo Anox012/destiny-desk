@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Share2, Shuffle } from "lucide-react";
+import { RotateCcw, Share2, Shuffle, Sparkles } from "lucide-react";
 import { CARDS, TOTAL_CARDS, getCardById } from "@/lib/cards";
 import { SPREADS, PURPOSES, getSpread } from "@/lib/spreads";
 import Starfield from "@/components/Starfield";
@@ -66,6 +66,7 @@ function shuffleIds() {
 
 export default function Home() {
   const [userName, setUserName] = useState("");
+  const [question, setQuestion] = useState("");
   const [purpose, setPurpose] = useState(PURPOSES[0].id);
   const [spreadId, setSpreadId] = useState("single");
 
@@ -81,6 +82,11 @@ export default function Home() {
   const [popup, setPopup] = useState(null);
   const [toast, setToast] = useState("");
   const [journal, setJournal] = useState([]);
+
+  // ---------- ทำนายด้วย AI (Gemini free tier) ----------
+  const [aiText, setAiText] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   const spread = useMemo(() => getSpread(spreadId), [spreadId]);
   const purposeObj = PURPOSES.find((p) => p.id === purpose);
@@ -128,6 +134,8 @@ export default function Home() {
     clearTimeout(resultTimer.current);
     setSelected([]);
     setStage("select");
+    setAiText("");
+    setAiError("");
   }, [spreadId]);
 
   // โหลดประวัติจาก LocalStorage
@@ -238,6 +246,9 @@ export default function Home() {
     setPopup(null);
     setStage("select");
     setSelected([]);
+    setAiText("");
+    setAiError("");
+    setAiLoading(false);
 
     const vectors = {};
     deckOrder.forEach((id) => {
@@ -335,6 +346,33 @@ export default function Home() {
     showToast(ok ? "คัดลอกผลไพ่แล้ว ✓ นำไปวางแชร์ให้เพื่อนได้เลย" : "คัดลอกไม่สำเร็จ ลองอีกครั้ง");
   }
 
+  // ---------- ทำนายด้วย AI (เรียก API route ฝั่ง server ที่ต่อ Gemini free tier) ----------
+  async function requestAiReading() {
+    if (selected.length === 0 || aiLoading) return;
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const res = await fetch("/api/interpret", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userName,
+          purpose: purposeObj?.label,
+          question,
+          spreadLabel: spread.label,
+          cards: selected.map((c) => ({ name: c.name, pos: c.pos?.th, th: c.th })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.text) throw new Error(data.error || "unknown");
+      setAiText(data.text);
+    } catch (_) {
+      setAiError("ทำนายไม่สำเร็จตอนนี้ — โควต้าฟรีอาจเต็มหรือยังไม่ได้ตั้งค่า API key ลองใหม่อีกครั้งภายหลัง");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   return (
     <main className="app">
       <Starfield />
@@ -376,6 +414,15 @@ export default function Home() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="field">
+            <label>คำถามของคุณ (ไม่บังคับ)</label>
+            <textarea
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="ใส่ไว้ถ้าอยากให้ AI ทำนายเจาะจงขึ้น เช่น ความสัมพันธ์นี้จะเป็นอย่างไรต่อไป"
+            />
           </div>
         </div>
       </section>
@@ -502,6 +549,12 @@ export default function Home() {
           )}
 
           <div className="actions result-actions">
+            {!aiText && (
+              <button className="btn-deck btn-ai" onClick={requestAiReading} disabled={aiLoading}>
+                <Sparkles size={16} strokeWidth={2.2} aria-hidden="true" />
+                {aiLoading ? "กำลังทำนาย..." : "ทำนายด้วย AI"}
+              </button>
+            )}
             <button className="btn-deck btn-share" onClick={shareResult}>
               <Share2 size={16} strokeWidth={2.2} aria-hidden="true" />
               แชร์ผลไพ่
@@ -511,6 +564,17 @@ export default function Home() {
               เลือกไพ่ใหม่
             </button>
           </div>
+
+          {aiError && <p className="ai-error">{aiError}</p>}
+          {aiText && (
+            <div className="ai-reading">
+              <h3 className="ai-reading-title">
+                <Sparkles size={18} strokeWidth={2.2} aria-hidden="true" />
+                คำทำนายจาก AI
+              </h3>
+              <p className="ai-reading-text">{aiText}</p>
+            </div>
+          )}
         </section>
       )}
 
