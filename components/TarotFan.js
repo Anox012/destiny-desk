@@ -55,6 +55,16 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [isMobile, setIsMobile] = useState(false);
   const touchStartX = useRef(null);
+  const prevSelectedLen = useRef(0);
+
+  // เลื่อนไปใบถัดไปอัตโนมัติทุกครั้งที่จำนวนที่เลือกเพิ่มขึ้น (ไม่ใช่ตอนลดเพราะกดยกเลิก)
+  // ผูกกับ selectedIds.length โดยตรงแทนอ่านค่าจาก closure ใน handler กันปัญหา stale state ตอนกดรัว ๆ
+  useEffect(() => {
+    if (selectedIds.length > prevSelectedLen.current && selectedIds.length < maxSelect) {
+      setCenterIndex((ci) => Math.min(ci + 1, deck.length - 1));
+    }
+    prevSelectedLen.current = selectedIds.length;
+  }, [selectedIds, maxSelect, deck.length]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 640px)");
@@ -99,15 +109,11 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
   }
 
   function handleCenterTap(id) {
-    const alreadyPicked = selectedIds.includes(id);
     setSelectedIds((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
       if (prev.length >= maxSelect) return prev;
       return [...prev, id];
     });
-    if (!alreadyPicked && selectedIds.length < maxSelect) {
-      setCenterIndex((ci) => Math.min(ci + 1, deck.length - 1));
-    }
   }
 
   const items = [];
