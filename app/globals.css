@@ -541,10 +541,19 @@ body {
   margin: 0 0 20px;
 }
 
+.fan-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 .fan-wrap {
   overflow-x: auto;
   overflow-y: visible;
   padding: 22px 16px 34px;
+}
+/* มีหลายแถว (จอเล็ก) -> ลดระยะขอบบนล่างของแต่ละแถวลง กันกินพื้นที่แนวตั้งเกินไป */
+.fan-rows:has(.fan-wrap:nth-child(2)) .fan-wrap {
+  padding: 10px 12px 14px;
 }
 .fan-track {
   position: relative;

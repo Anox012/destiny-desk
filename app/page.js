@@ -74,6 +74,7 @@ export default function Home() {
   const [deckPhase, setDeckPhase] = useState("fan"); // fan | exploding | piled | cutting
   const [cutAt, setCutAt] = useState(null);
   const [fanWidth, setFanWidth] = useState(320); // ความกว้างที่วัดได้จริงของกล่องกองไพ่
+  const [isMobile, setIsMobile] = useState(false); // จอเล็ก -> แบ่งกองไพ่เป็น 3 แถว ให้ไพ่แต่ละใบไม่เล็กเกินไป
 
   const [stage, setStage] = useState("select"); // select | result
   const [selected, setSelected] = useState([]); // [{id, name, th, pos}]
@@ -113,6 +114,15 @@ export default function Home() {
     };
   }, []);
 
+  // จอเล็ก -> แบ่งกองไพ่เป็นหลายแถว
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 760px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   // เปลี่ยนรูปแบบการวางไพ่ -> เริ่มเลือกใหม่
   useEffect(() => {
     clearTimeout(resultTimer.current);
@@ -145,17 +155,33 @@ export default function Home() {
   }
 
   // ---------- เรขาคณิตของกองไพ่ที่กรีดเป็นแถว: คำนวณให้พอดีความกว้างจริงเสมอ ----------
+  // จอเล็ก -> แบ่งเป็น 3 แถว ให้ไพ่แต่ละใบมีขนาดใหญ่พอมองเห็น/แตะง่าย แทนที่จะยัดทั้ง 80 ใบแถวเดียว
+  const rows = isMobile ? 3 : 1;
+  const perRow = Math.ceil(TOTAL_CARDS / rows);
+  const rowChunks = useMemo(() => {
+    const chunks = [];
+    for (let r = 0; r < rows; r++) {
+      chunks.push(deckOrder.slice(r * perRow, (r + 1) * perRow));
+    }
+    return chunks;
+  }, [deckOrder, rows, perRow]);
+
   // เผื่อระยะขอบไว้สำหรับมุมไพ่ที่หมุนเอียงตรงปลายกอง ไม่ให้ล้นออกนอกกล่อง
   const usableWidth = Math.max(200, fanWidth - 90);
-  const CARD_W = Math.max(40, Math.min(88, usableWidth / 8));
+  const CARD_W =
+    rows === 1
+      ? Math.max(40, Math.min(88, usableWidth / 8))
+      : Math.max(56, Math.min(110, usableWidth / 3.6));
   const CARD_H = CARD_W * 1.5;
-  const FAN_SPACING = (usableWidth - CARD_W) / (TOTAL_CARDS - 1);
-  const FAN_CENTER = (TOTAL_CARDS - 1) / 2;
+  const FAN_SPACING = (usableWidth - CARD_W) / (perRow - 1);
+  const FAN_CENTER = (perRow - 1) / 2;
   const FAN_ANGLE = 18 / FAN_CENTER; // มุมกางสูงสุดที่ปลายกองราว ±18 องศา ไม่ให้มุมไพ่แกว่งล้นขอบ
   const trackWidth = usableWidth;
-  const trackHeight = CARD_H + 60;
+  const trackHeight = CARD_H + (rows === 1 ? 60 : 40);
 
-  function getCardTransform(id, index, isSelected) {
+  // localIndex = ตำแหน่งของใบนี้ภายในแถวของตัวเอง (คุมส่วนโค้งของแถว)
+  // globalIndex = ตำแหน่งจริงในกองทั้งสำรับ (ใช้เทียบจุดตัดตอนตัดไพ่ ซึ่งตัดข้ามทั้งกอง ไม่ใช่ทีละแถว)
+  function getCardTransform(id, localIndex, globalIndex, isSelected) {
     if (deckPhase === "piled") {
       return "translateX(0) translateY(0) rotate(0deg) scale(0.9)";
     }
@@ -163,13 +189,12 @@ export default function Home() {
       const v = explodeVectors.current[id] || { dx: 0, dy: 0, rot: 0 };
       return `translateX(${v.dx}px) translateY(${v.dy}px) rotate(${v.rot}deg) scale(0.85)`;
     }
-    const center = (TOTAL_CARDS - 1) / 2;
-    const offset = index - center;
+    const offset = localIndex - FAN_CENTER;
     let tx = offset * FAN_SPACING;
     let ty = 0;
     let rot = offset * FAN_ANGLE;
     if (deckPhase === "cutting" && cutAt != null) {
-      if (index < cutAt) {
+      if (globalIndex < cutAt) {
         tx -= 18;
         ty -= 42;
         rot -= 5;
@@ -366,29 +391,34 @@ export default function Home() {
           </div>
           <p className="deck-hint">แตะไพ่ในกองเพื่อเลือกทีละใบ — {spread.th}</p>
 
-          <div className="fan-wrap" ref={fanWrapRef}>
-            <div className="fan-track" style={{ width: trackWidth, height: trackHeight }}>
-              {deckOrder.map((id, index) => {
-                const isSelected = selected.some((s) => s.id === id);
-                const disabled = isSelected || selected.length >= spread.count || deckPhase !== "fan";
-                return (
-                  <div
-                    key={id}
-                    className={`fan-card${isSelected ? " is-picked" : ""}`}
-                    style={{
-                      width: CARD_W,
-                      height: CARD_H,
-                      marginLeft: -CARD_W / 2,
-                      transform: getCardTransform(id, index, isSelected),
-                      zIndex: index,
-                    }}
-                    onClick={() => !disabled && selectCard(id)}
-                  >
-                    <TarotCard id={id} revealed={isSelected} className="size-fan" />
-                  </div>
-                );
-              })}
-            </div>
+          <div className="fan-rows">
+            {rowChunks.map((chunk, r) => (
+              <div className="fan-wrap" ref={r === 0 ? fanWrapRef : null} key={r}>
+                <div className="fan-track" style={{ width: trackWidth, height: trackHeight }}>
+                  {chunk.map((id, localIndex) => {
+                    const globalIndex = r * perRow + localIndex;
+                    const isSelected = selected.some((s) => s.id === id);
+                    const disabled = isSelected || selected.length >= spread.count || deckPhase !== "fan";
+                    return (
+                      <div
+                        key={id}
+                        className={`fan-card${isSelected ? " is-picked" : ""}`}
+                        style={{
+                          width: CARD_W,
+                          height: CARD_H,
+                          marginLeft: -CARD_W / 2,
+                          transform: getCardTransform(id, localIndex, globalIndex, isSelected),
+                          zIndex: localIndex,
+                        }}
+                        onClick={() => !disabled && selectCard(id)}
+                      >
+                        <TarotCard id={id} revealed={isSelected} className="size-fan" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* ไพ่ที่เลือกแล้ว เรียงเป็นแถวใต้กอง — เห็นชัด ไม่บังกัน */}
