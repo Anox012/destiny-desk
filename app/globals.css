@@ -111,8 +111,7 @@ body {
 }
 
 .field input,
-.field select,
-.field textarea {
+.field select {
   width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
@@ -124,14 +123,9 @@ body {
   outline: none;
 }
 .field input:focus,
-.field select:focus,
-.field textarea:focus {
+.field select:focus {
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
-}
-.field textarea {
-  resize: vertical;
-  min-height: 46px;
 }
 
 /* ---------- ปุ่ม ---------- */

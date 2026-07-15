@@ -66,7 +66,6 @@ function shuffleIds() {
 
 export default function Home() {
   const [userName, setUserName] = useState("");
-  const [question, setQuestion] = useState("");
   const [purpose, setPurpose] = useState(PURPOSES[0].id);
   const [spreadId, setSpreadId] = useState("single");
 
@@ -74,7 +73,7 @@ export default function Home() {
   const [deckOrder, setDeckOrder] = useState(() => [...Array(TOTAL_CARDS).keys()]);
   const [deckPhase, setDeckPhase] = useState("fan"); // fan | exploding | piled | cutting
   const [cutAt, setCutAt] = useState(null);
-  const [compact, setCompact] = useState(false);
+  const [fanWidth, setFanWidth] = useState(320); // ความกว้างที่วัดได้จริงของกล่องกองไพ่
 
   const [stage, setStage] = useState("select"); // select | result
   const [selected, setSelected] = useState([]); // [{id, name, th, pos}]
@@ -90,19 +89,28 @@ export default function Home() {
   const clearTimers = useRef([]);
   const cutTimer = useRef(null);
   const explodeVectors = useRef({});
+  const fanWrapRef = useRef(null);
 
   // สับไพ่ครั้งแรกฝั่ง client เท่านั้น (กัน hydration mismatch จาก Math.random)
   useEffect(() => {
     setDeckOrder(shuffleIds());
   }, []);
 
-  // จอเล็ก -> ย่อขนาดไพ่ในกอง
+  // วัดความกว้างจริงของกล่องกองไพ่ ให้กองไพ่ยืด/หดพอดีเสมอ ไม่ล้นต้องเลื่อนจอ
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 760px)");
-    const update = () => setCompact(mq.matches);
+    const el = fanWrapRef.current;
+    if (!el) return;
+    const update = () => setFanWidth(el.clientWidth);
     update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
   }, []);
 
   // เปลี่ยนรูปแบบการวางไพ่ -> เริ่มเลือกใหม่
@@ -136,13 +144,16 @@ export default function Home() {
     toastTimer.current = setTimeout(() => setToast(""), 2200);
   }
 
-  // ---------- เรขาคณิตของกองไพ่ที่กรีดเป็นแถว ----------
-  const CARD_W = compact ? 58 : 78;
-  const CARD_H = compact ? 88 : 118;
-  const FAN_SPACING = compact ? 7 : 10;
-  const FAN_ANGLE = compact ? 2.1 : 2.4;
-  const trackWidth = FAN_SPACING * (TOTAL_CARDS - 1) + CARD_W + 80;
-  const trackHeight = CARD_H + 70;
+  // ---------- เรขาคณิตของกองไพ่ที่กรีดเป็นแถว: คำนวณให้พอดีความกว้างจริงเสมอ ----------
+  // เผื่อระยะขอบไว้สำหรับมุมไพ่ที่หมุนเอียงตรงปลายกอง ไม่ให้ล้นออกนอกกล่อง
+  const usableWidth = Math.max(200, fanWidth - 90);
+  const CARD_W = Math.max(40, Math.min(88, usableWidth / 8));
+  const CARD_H = CARD_W * 1.5;
+  const FAN_SPACING = (usableWidth - CARD_W) / (TOTAL_CARDS - 1);
+  const FAN_CENTER = (TOTAL_CARDS - 1) / 2;
+  const FAN_ANGLE = 18 / FAN_CENTER; // มุมกางสูงสุดที่ปลายกองราว ±18 องศา ไม่ให้มุมไพ่แกว่งล้นขอบ
+  const trackWidth = usableWidth;
+  const trackHeight = CARD_H + 60;
 
   function getCardTransform(id, index, isSelected) {
     if (deckPhase === "piled") {
@@ -244,7 +255,6 @@ export default function Home() {
     const entry = {
       at: new Date().toISOString(),
       name: userName || "ไม่ระบุชื่อ",
-      question: question || "-",
       purpose: purposeObj?.label,
       spread: spread.label,
       cards: picked.map((c) => c.name),
@@ -342,15 +352,6 @@ export default function Home() {
               ))}
             </select>
           </div>
-
-          <div className="field">
-            <label>คำถามของคุณ</label>
-            <textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="เช่น ความสัมพันธ์นี้จะเป็นอย่างไรต่อไป"
-            />
-          </div>
         </div>
       </section>
 
@@ -365,7 +366,7 @@ export default function Home() {
           </div>
           <p className="deck-hint">แตะไพ่ในกองเพื่อเลือกทีละใบ — {spread.th}</p>
 
-          <div className="fan-wrap">
+          <div className="fan-wrap" ref={fanWrapRef}>
             <div className="fan-track" style={{ width: trackWidth, height: trackHeight }}>
               {deckOrder.map((id, index) => {
                 const isSelected = selected.some((s) => s.id === id);
@@ -493,7 +494,7 @@ export default function Home() {
                 {new Date(j.at).toLocaleString("th-TH")} · {j.spread} · {j.purpose}
               </div>
               <div className="cards">
-                {j.name} ถาม: {j.question} — ไพ่: {j.cards.join(", ")}
+                {j.name} — ไพ่: {j.cards.join(", ")}
               </div>
             </div>
           ))}
