@@ -68,7 +68,14 @@ ${cardLines}
 
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { maxOutputTokens: 700, temperature: 0.85 },
+    // thinkingBudget: 0 = ปิดโหมด "คิดในใจ" ของโมเดล 3.x (ไม่งั้นมันกิน token หมดจนคำตอบโดนตัด
+    // MAX_TOKENS กลางประโยค) — ปิดแล้วคำตอบจริงเต็ม + ใช้ token น้อยลงด้วย
+    // maxOutputTokens 1500 = เผื่อสเปรด 10 ใบที่คำทำนายยาว ให้จบประโยคพอดี
+    generationConfig: {
+      maxOutputTokens: 1500,
+      temperature: 0.85,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   });
 
   // เก็บ error ของ 429 ไว้เป็นตัวรายงานหลัก (สาเหตุจริงที่ต้องแก้) เพราะ 404 "โมเดลไม่มี"
