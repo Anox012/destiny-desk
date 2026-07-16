@@ -212,7 +212,8 @@ export default function Home() {
       case "no_api_key":
         return "ยังไม่ได้ตั้งค่า GEMINI_API_KEY — เจ้าของเว็บต้องเพิ่ม API key ใน Vercel (Settings → Environment Variables) แล้ว Redeploy";
       case "quota":
-        return "โควต้าฟรีของ Gemini เต็มชั่วคราว (อาจเป็นการจำกัดต่อนาที ลองใหม่อีกครั้งใน 1 นาที)" + suffix;
+        // โควต้าเต็ม = ผู้ใช้ทั่วไปเจอได้ ใช้ข้อความอบอุ่นในโทนหมอดู ไม่โชว์ detail เทคนิค
+        return "ตอนนี้มีคนขอคำทำนายเข้ามาเยอะมากค่ะ 🌙 ขอพักรับพลังสักครู่ เดี๋ยวค่อยกลับมาคุยกันใหม่นะคะ";
       case "gemini_error":
         return "เรียก Gemini ไม่สำเร็จ (อาจเพราะ API key ไม่ถูกต้อง/ยังไม่เปิดใช้ Generative Language API)" + suffix;
       default:
