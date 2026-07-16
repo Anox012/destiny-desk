@@ -22,10 +22,14 @@ function FaceImg({ id }) {
   );
 }
 
-function CardBack() {
+// num = ลำดับไพ่ในกอง (ไม่ใช่หมายเลขไพ่จริง) โชว์ให้เห็นว่าปัดแล้วเปลี่ยนใบจริง
+function CardBack({ num }) {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
-      <span className="text-3xl text-indigo-200 drop-shadow-[0_0_8px_rgba(165,180,252,0.65)]">✷</span>
+    <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
+      <span className="text-2xl text-indigo-200 drop-shadow-[0_0_8px_rgba(165,180,252,0.65)]">✷</span>
+      {num != null && (
+        <span className="rounded-full bg-black/25 px-2 text-sm font-bold text-amber-200/90">{num}</span>
+      )}
     </div>
   );
 }
@@ -214,7 +218,7 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
                     : "border-indigo-300/50 shadow-indigo-950/40"
                 }`}
               >
-                {isRevealed ? <FaceImg id={id} /> : <CardBack />}
+                {isRevealed ? <FaceImg id={id} /> : <CardBack num={centerIndex + offset + 1} />}
               </div>
               {/* ป้ายเลขโรมันบอกลำดับที่เลือก (I, II, III...) ไม่เกี่ยวกับหมายเลขไพ่ */}
               {isRevealed && (
