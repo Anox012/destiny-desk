@@ -41,6 +41,25 @@ const CURVE = [
 const ROTATE_STEP = 9; // องศาต่อใบ (คงที่ตามสเปก)
 const WINDOW = 4; // เรนเดอร์ล่วงหน้ารอบ ๆ ใบกลาง กันการ enter/exit กระตุก
 
+// แปลงเลข 1–10 เป็นเลขโรมัน (ใช้บอกลำดับที่เลือก ไม่เกี่ยวกับหมายเลขไพ่)
+function toRoman(n) {
+  const map = [
+    [10, "X"],
+    [9, "IX"],
+    [5, "V"],
+    [4, "IV"],
+    [1, "I"],
+  ];
+  let out = "";
+  for (const [v, s] of map) {
+    while (n >= v) {
+      out += s;
+      n -= v;
+    }
+  }
+  return out;
+}
+
 /**
  * TarotFan — พัดไพ่ทาโรต์ ใบกลางเด่นสุด เลื่อนด้วยลูกศร/ปัดนิ้ว แตะใบกลางเพื่อเลือก
  *
@@ -120,7 +139,7 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
 
   function handleCenterTap(id) {
     setSelectedIds((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.includes(id)) return prev; // เลือกแล้วกดปิดกลับ/เลือกซ้ำไม่ได้
       if (prev.length >= maxSelect) return prev;
       return [...prev, id];
     });
@@ -171,6 +190,7 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
           const rot = offset * ROTATE_STEP;
           const isCenter = offset === 0;
           const isRevealed = selectedIds.includes(id);
+          const order = isRevealed ? selectedIds.indexOf(id) + 1 : 0; // ลำดับที่เลือก (1-based)
           return (
             <div
               key={id}
@@ -183,7 +203,7 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
                 opacity,
                 zIndex: 50 - abs,
                 transitionProperty: "transform, opacity",
-                cursor: isCenter ? "pointer" : "default",
+                cursor: isCenter && !isRevealed ? "pointer" : "default",
               }}
               onClick={() => isCenter && handleCenterTap(id)}
             >
@@ -196,6 +216,12 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
               >
                 {isRevealed ? <FaceImg id={id} /> : <CardBack />}
               </div>
+              {/* ป้ายเลขโรมันบอกลำดับที่เลือก (I, II, III...) ไม่เกี่ยวกับหมายเลขไพ่ */}
+              {isRevealed && (
+                <div className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-9 min-w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-amber-100 bg-gradient-to-br from-amber-400 to-yellow-600 px-2 text-sm font-bold text-white shadow-md shadow-black/40">
+                  {toRoman(order)}
+                </div>
+              )}
             </div>
           );
         })}
@@ -207,6 +233,7 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
           return (
             <div key={i} className="flex w-20 flex-col items-center gap-1.5">
               <span className="line-clamp-2 text-center text-[11px] font-semibold leading-tight text-indigo-900/70">
+                <span className="text-amber-600">{toRoman(i + 1)}</span>{" "}
                 {positions?.[i]?.th || `ใบที่ ${i + 1}`}
               </span>
               <div
@@ -214,7 +241,7 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
                   id != null ? "border-indigo-400" : "border-dashed border-indigo-400/40"
                 }`}
               >
-                {id != null ? <FaceImg id={id} /> : <span className="text-lg font-bold text-indigo-400/50">{i + 1}</span>}
+                {id != null ? <FaceImg id={id} /> : <span className="text-lg font-bold text-indigo-400/50">{toRoman(i + 1)}</span>}
               </div>
             </div>
           );
