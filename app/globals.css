@@ -839,3 +839,228 @@ body {
     height: calc(60vw * 1.5);
   }
 }
+
+/* ============================================================
+   💬 DeskMoo Chat — หน้าผลไพ่สไตล์แชต (Line/IG DM)
+   ============================================================ */
+.deskmoo {
+  max-width: 440px;
+  margin: 0 auto;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #14121f;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  box-shadow: 0 20px 55px rgba(60, 20, 90, 0.4);
+  display: flex;
+  flex-direction: column;
+  font-family: "Noto Sans Thai", "Noto Sans", -apple-system, "Segoe UI", sans-serif;
+  animation: dealIn 0.4s both;
+}
+
+/* หัวแชต */
+.deskmoo-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(120deg, #3b1178, #6d28d9);
+  color: #fff;
+}
+.deskmoo-head-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  flex: 1;
+}
+.deskmoo-name {
+  font-weight: 700;
+  font-size: 15px;
+}
+.deskmoo-status {
+  font-size: 11px;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.deskmoo-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 6px #4ade80;
+  display: inline-block;
+}
+.deskmoo-mute {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* พื้นที่ข้อความ */
+.deskmoo-body {
+  padding: 16px 12px;
+  height: 60vh;
+  max-height: 520px;
+  min-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(124, 58, 237, 0.14), transparent 42%),
+    #14121f;
+}
+.deskmoo-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 90%;
+}
+.deskmoo-av svg {
+  display: block;
+  border-radius: 50%;
+}
+.deskmoo-bubble {
+  background: #2a2440;
+  color: #f3f0ff;
+  padding: 10px 14px;
+  border-radius: 18px 18px 18px 5px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+.deskmoo-bubble.accent {
+  background: linear-gradient(135deg, #a21caf, #7c3aed);
+  box-shadow: 0 4px 18px rgba(124, 58, 237, 0.45);
+}
+.deskmoo-bubble strong {
+  color: #fde68a;
+}
+.deskmoo-bubble.accent strong {
+  color: #fff;
+}
+
+/* ไพ่ในแชต */
+.deskmoo-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.deskmoo-card {
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.deskmoo-card-img {
+  width: 76px;
+  height: 114px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #d4af37;
+  display: block;
+  cursor: pointer;
+}
+.deskmoo-card-name {
+  font-size: 9px;
+  color: #e9d5ff;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* typing indicator */
+.deskmoo-bubble.typing {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 15px 16px;
+}
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c4b5fd;
+  display: inline-block;
+  animation: typingBlink 1.2s infinite;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes typingBlink {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+/* bubble เด้งเข้า */
+@keyframes bubblePop {
+  from { opacity: 0; transform: translateY(10px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+.bubble-pop {
+  animation: bubblePop 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+/* แถบปุ่ม (คล้ายช่องพิมพ์) */
+.deskmoo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: #1b1730;
+  border-top: 1px solid rgba(168, 85, 247, 0.2);
+}
+.deskmoo-btn {
+  flex: 1;
+  min-width: 120px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e9d5ff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.2s ease;
+}
+.deskmoo-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+.deskmoo-btn:active:not(:disabled) {
+  transform: translateY(2px);
+}
+.deskmoo-btn.primary {
+  flex-basis: 100%;
+  background: linear-gradient(135deg, #c026d3, #7c3aed);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.45);
+}
+.deskmoo-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deskmoo,
+  .bubble-pop,
+  .typing-dot {
+    animation: none !important;
+  }
+}

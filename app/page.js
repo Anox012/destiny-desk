@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Share2, Sparkles } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { TOTAL_CARDS, getCardById } from "@/lib/cards";
 import { SPREADS, PURPOSES, getSpread } from "@/lib/spreads";
 import Starfield from "@/components/Starfield";
 import TarotFan from "@/components/TarotFan";
+import DeskMooChat from "@/components/DeskMooChat";
 
 // ---------------------------------------------------------------------------
 // หน้าไพ่: ลองโหลด /tarotimages/{id}.jpg -> .png -> ถ้าไม่มีให้แสดงลายหลังไพ่
@@ -24,33 +25,6 @@ function CardFace({ id }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={sources[step]} alt={`card ${id}`} onError={() => setStep((s) => s + 1)} />
-  );
-}
-
-// ลายหลังไพ่ (ตอนยังคว่ำ)
-function CardBack() {
-  return (
-    <div className="card-back">
-      <span className="rune">✷</span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ไพ่พลิก 3D : revealed=false แสดงหลังไพ่, revealed=true พลิกโชว์หน้าไพ่
-// ---------------------------------------------------------------------------
-function TarotCard({ id, revealed, className = "", onClick }) {
-  return (
-    <div className={`flip ${className}`} onClick={onClick}>
-      <div className={`flip-inner ${revealed ? "flipped" : ""}`}>
-        <div className="flip-face flip-back">
-          <CardBack />
-        </div>
-        <div className="flip-face flip-front">
-          <CardFace id={id} />
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -550,84 +524,23 @@ export default function Home() {
         </section>
       )}
 
-      {/* ---------- โซนแสดงผลไพ่ที่เลือกแล้ว ---------- */}
+      {/* ---------- ผลไพ่: หน้าต่างแชต DeskMoo ---------- */}
       {stage === "result" && (
         <section className="board-wrap">
-          <h2 className="section-title">{spread.th}</h2>
-
-          {spreadId !== "celtic" && (
-            <div className="card-row">
-              {selected.map((c, i) => (
-                <div className="card-slot dealt" key={i} style={{ animationDelay: `${i * 0.12}s` }}>
-                  <div className="pos-label">{c.pos?.th}</div>
-                  <TarotCard id={c.id} revealed className="size-lg" />
-                  <div className="card-caption show">
-                    <span className="en">{c.name}</span>
-                    {c.th}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {spreadId === "celtic" && (
-            <div className="celtic-scroll">
-              <div className="celtic-board">
-                {selected.map((c, i) => {
-                  const pos = c.pos;
-                  const label = (
-                    <div className="celtic-index">
-                      {pos.key}. {pos.th}
-                    </div>
-                  );
-                  return (
-                    <div
-                      key={i}
-                      className={`celtic-cell${pos.rotate ? " rotated" : ""}`}
-                      style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                    >
-                      {!pos.labelBelow && label}
-                      <TarotCard
-                        id={c.id}
-                        revealed
-                        className="size-sm is-open"
-                        onClick={() => setPopup({ ...c, idx: i })}
-                      />
-                      {pos.labelBelow && label}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="actions result-actions">
-            {!aiText && (
-              <button className="btn-deck btn-ai" onClick={requestAiReading} disabled={aiLoading}>
-                <Sparkles size={16} strokeWidth={2.2} aria-hidden="true" />
-                {aiLoading ? "กำลังทำนาย..." : "ทำนายด้วย AI"}
-              </button>
-            )}
-            <button className="btn-deck btn-share" onClick={shareResult} disabled={sharing}>
-              <Share2 size={16} strokeWidth={2.2} aria-hidden="true" />
-              {sharing ? "กำลังสร้างรูป..." : "แชร์ผลไพ่"}
-            </button>
-            <button className="btn-deck" onClick={handleClearDeck}>
-              <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
-              เลือกไพ่ใหม่
-            </button>
-          </div>
-
-          {aiError && <p className="ai-error">{aiError}</p>}
-          {aiText && (
-            <div className="ai-reading">
-              <h3 className="ai-reading-title">
-                <Sparkles size={18} strokeWidth={2.2} aria-hidden="true" />
-                คำทำนายจาก AI
-              </h3>
-              <p className="ai-reading-text">{aiText}</p>
-            </div>
-          )}
+          <DeskMooChat
+            key={selected.map((c) => c.id).join("-")}
+            userName={userName}
+            spread={spread}
+            selected={selected}
+            aiText={aiText}
+            aiLoading={aiLoading}
+            aiError={aiError}
+            sharing={sharing}
+            onRequestAI={requestAiReading}
+            onShare={shareResult}
+            onRestart={handleClearDeck}
+            onCardClick={(c, i) => c.pos?.key != null && setPopup({ ...c, idx: i })}
+          />
         </section>
       )}
 
