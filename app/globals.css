@@ -839,3 +839,263 @@ body {
     height: calc(60vw * 1.5);
   }
 }
+
+/* ============================================================
+   💬 DeskMoo — บับเบิลลอยขึ้นมา (ไร้กรอบแชต) โทนครีม/ทอง/ม่วงอ่อน
+   ============================================================ */
+.deskmoo {
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  font-family: "Noto Sans Thai", "Noto Sans", -apple-system, "Segoe UI", sans-serif;
+}
+
+/* หัว: แค่ตัวมูน้อย + ชื่อ ลอยอยู่กลางๆ ไม่มีแถบทึบ */
+.deskmoo-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  padding: 4px 4px 14px;
+  position: relative;
+}
+.deskmoo-head-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.deskmoo-name {
+  font-weight: 700;
+  font-size: 17px;
+  font-family: "Cormorant Garamond", "Noto Sans Thai", serif;
+  color: var(--gold);
+}
+.deskmoo-status {
+  font-size: 11px;
+  color: var(--brown);
+  opacity: 0.85;
+}
+.deskmoo-mute {
+  position: absolute;
+  right: 0;
+  top: 0;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--gold-soft);
+  color: var(--brown);
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* พื้นที่ข้อความ: โปร่งใส ไร้กรอบ ให้บับเบิลลอยบนพื้นเว็บ */
+.deskmoo-body {
+  padding: 6px 4px 8px;
+  max-height: 66vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.deskmoo-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 92%;
+}
+.deskmoo-av svg {
+  display: block;
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgba(138, 43, 226, 0.22);
+}
+.deskmoo-bubble {
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--ink);
+  padding: 11px 15px;
+  border-radius: 20px 20px 20px 6px;
+  font-size: 14px;
+  line-height: 1.65;
+  word-break: break-word;
+  border: 1px solid var(--gold-soft);
+  box-shadow: 0 6px 18px rgba(120, 90, 30, 0.14);
+}
+/* บับเบิลคำทำนายเต็ม: ม่วงอ่อนพาสเทล เด่นแบบนุ่มๆ */
+.deskmoo-bubble.accent {
+  background: linear-gradient(150deg, #f2e9ff, #e6d8f7);
+  border-color: rgba(138, 43, 226, 0.28);
+  box-shadow: 0 8px 22px rgba(138, 43, 226, 0.18);
+}
+.deskmoo-bubble strong {
+  color: var(--gold);
+}
+.deskmoo-bubble.accent strong {
+  color: var(--purple);
+}
+
+/* ไพ่ในบับเบิล */
+.deskmoo-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.deskmoo-card {
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.deskmoo-card-img {
+  width: 76px;
+  height: 114px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--gold-light);
+  display: block;
+  cursor: pointer;
+}
+.deskmoo-card-name {
+  font-size: 9px;
+  color: var(--brown);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* typing indicator */
+.deskmoo-bubble.typing {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 15px 16px;
+}
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--purple);
+  opacity: 0.5;
+  display: inline-block;
+  animation: typingBlink 1.2s infinite;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes typingBlink {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+/* bubble ลอยขึ้นมา */
+@keyframes bubblePop {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+.bubble-pop {
+  animation: bubblePop 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+/* ปุ่มด้านล่าง (ลอย ไม่มีแถบทึบ) */
+.deskmoo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+}
+.deskmoo-btn {
+  flex: 1;
+  min-width: 130px;
+  max-width: 220px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--gold-soft);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--brown);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.2s ease;
+}
+.deskmoo-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.95);
+}
+.deskmoo-btn:active:not(:disabled) {
+  transform: translateY(2px);
+}
+.deskmoo-btn.primary {
+  flex-basis: 100%;
+  max-width: none;
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(150deg, #a259d6, var(--purple));
+  box-shadow: 0 6px 16px rgba(138, 43, 226, 0.32);
+}
+.deskmoo-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble-pop,
+  .typing-dot {
+    animation: none !important;
+  }
+}
+
+/* ============================================================
+   🃏 หลังไพ่โทนกรมท่า-ทอง + แสงวิ่งพาดผ่าน (เข้ากับแบรนด์ DeskMoo)
+   ============================================================ */
+.moo-card-back {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.28), transparent 60%),
+    linear-gradient(150deg, #2a3a72, #1c2752 55%, #131c3f);
+}
+/* แสงวิ่งพาดเฉียงไปมา */
+.moo-card-back::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    rgba(255, 240, 200, 0.55) 50%,
+    transparent 62%
+  );
+  transform: translateX(-130%);
+  animation: cardShine 3.4s ease-in-out infinite;
+}
+@keyframes cardShine {
+  0% { transform: translateX(-130%); }
+  55%, 100% { transform: translateX(130%); }
+}
+
+/* ไพ่ใบกลาง: เรืองแสงทองวิ่งวน ดูเริ่ด */
+.moo-center-card {
+  animation: centerGlow 2.6s ease-in-out infinite;
+}
+@keyframes centerGlow {
+  0%, 100% { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(212, 175, 55, 0); }
+  50% { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), 0 0 22px 4px rgba(212, 175, 55, 0.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moo-card-back::after,
+  .moo-center-card {
+    animation: none !important;
+  }
+}

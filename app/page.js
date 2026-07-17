@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Share2, Sparkles } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { TOTAL_CARDS, getCardById } from "@/lib/cards";
 import { SPREADS, PURPOSES, getSpread } from "@/lib/spreads";
 import Starfield from "@/components/Starfield";
 import TarotFan from "@/components/TarotFan";
+import DeskMooChat from "@/components/DeskMooChat";
 
 // ---------------------------------------------------------------------------
 // หน้าไพ่: ลองโหลด /tarotimages/{id}.jpg -> .png -> ถ้าไม่มีให้แสดงลายหลังไพ่
@@ -27,33 +28,6 @@ function CardFace({ id }) {
   );
 }
 
-// ลายหลังไพ่ (ตอนยังคว่ำ)
-function CardBack() {
-  return (
-    <div className="card-back">
-      <span className="rune">✷</span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ไพ่พลิก 3D : revealed=false แสดงหลังไพ่, revealed=true พลิกโชว์หน้าไพ่
-// ---------------------------------------------------------------------------
-function TarotCard({ id, revealed, className = "", onClick }) {
-  return (
-    <div className={`flip ${className}`} onClick={onClick}>
-      <div className={`flip-inner ${revealed ? "flipped" : ""}`}>
-        <div className="flip-face flip-back">
-          <CardBack />
-        </div>
-        <div className="flip-face flip-front">
-          <CardFace id={id} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const STORAGE_KEY = "destiny-desk-journal";
 
 function shuffleIds() {
@@ -63,6 +37,63 @@ function shuffleIds() {
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   return pool;
+}
+
+// ---------------------------------------------------------------------------
+// ตัวช่วยสร้างรูปแชร์ (วาดไพ่ + คำทำนายลง canvas แล้วส่งออกเป็นไฟล์ภาพ)
+// ---------------------------------------------------------------------------
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("load failed"));
+    img.src = src;
+  });
+}
+
+// โหลดรูปไพ่: ลอง .jpg -> .png -> ถ้าไม่มีคืน null (ไปวาดหลังไพ่แทน)
+async function loadCardImage(id) {
+  try {
+    return await loadImage(`/tarotimages/${id}.jpg`);
+  } catch (_) {
+    try {
+      return await loadImage(`/tarotimages/${id}.png`);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+// ตัดข้อความขึ้นบรรทัดใหม่ให้พอดีความกว้าง — ไล่ทีละอักขระ (รองรับไทยที่ไม่มีเว้นวรรคระหว่างคำ)
+function wrapLines(ctx, text, maxWidth) {
+  const out = [];
+  for (const para of text.split("\n")) {
+    if (para === "") {
+      out.push("");
+      continue;
+    }
+    let line = "";
+    for (const ch of para) {
+      if (line && ctx.measureText(line + ch).width > maxWidth) {
+        out.push(line);
+        line = ch;
+      } else {
+        line += ch;
+      }
+    }
+    if (line) out.push(line);
+  }
+  return out;
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 export default function Home() {
@@ -85,6 +116,7 @@ export default function Home() {
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [sharing, setSharing] = useState(false);
 
   const spread = useMemo(() => getSpread(spreadId), [spreadId]);
   const purposeObj = PURPOSES.find((p) => p.id === purpose);
@@ -117,6 +149,15 @@ export default function Home() {
     return () => clearTimeout(toastTimer.current);
   }, []);
 
+  // เข้าหน้าแชตผล -> ให้ DeskMoo ทำนายเต็มๆ อัตโนมัติ (ไม่ต้องกดปุ่ม)
+  // ยิงตอนเข้า stage result เลย (ขนานกับตอนบับเบิลทยอยเด้ง) พออ่านเสร็จค่อยเด้งเข้าแชต
+  useEffect(() => {
+    if (stage === "result" && selected.length > 0 && !aiText && !aiLoading && !aiError) {
+      requestAiReading();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
   function showToast(msg) {
     clearTimeout(toastTimer.current);
     setToast(msg);
@@ -125,6 +166,7 @@ export default function Home() {
 
   // ---------- ยืนยันไพ่ที่เลือกจาก TarotFan ----------
   function handleFanConfirm(ids) {
+    if (stage === "result") return; // กันกดยืนยันซ้ำ (TarotFan ยังค้างอยู่ด้านบน)
     const picked = ids.map((id, i) => ({ ...getCardById(id), pos: spread.positions[i] }));
     setSelected(picked);
     setStage("result");
@@ -187,20 +229,185 @@ export default function Home() {
     }
   }
 
-  // ---------- แชร์ผลไพ่ + ความหมายให้เพื่อนดู ----------
-  function shareResult() {
-    if (selected.length === 0) return;
-    const lines = selected
+  // เนื้อความสำหรับแชร์: ถ้ากดทำนาย AI แล้วใช้คำทำนาย AI, ไม่งั้นใช้ความหมายไพ่
+  function shareBodyText() {
+    if (aiText) return aiText.replace(/\*\*/g, "").replace(/\*/g, "");
+    return selected
       .map((c, i) => `${i + 1}. ${c.name}${c.pos?.th ? ` — ${c.pos.th}` : ""}\n${c.th}`)
       .join("\n\n");
-    const text = `🔮 ผลไพ่ทาโรต์ — ${spread.th}\n\n${lines}\n\n— จาก Destiny Desk`;
+  }
 
-    if (navigator.share) {
-      navigator.share({ title: "ผลไพ่ทาโรต์ของฉัน", text }).catch(() => {});
-      return;
+  // ---------- วาดรูปแชร์ (ไพ่ + คำทำนาย) ลง canvas แล้วคืนเป็น Blob ----------
+  async function buildShareImage() {
+    const W = 1080;
+    const pad = 64;
+    const contentW = W - pad * 2;
+    const heading = aiText ? "คำทำนายจาก AI" : "ความหมายไพ่";
+    const body = shareBodyText();
+
+    const imgs = await Promise.all(selected.map((c) => loadCardImage(c.id)));
+
+    // จัดไพ่เป็นแถว (1–3 ใบ = แถวเดียว, มากกว่านั้นแบ่ง 3–5 ใบต่อแถว)
+    const n = selected.length;
+    const perRow = n <= 3 ? n : n <= 6 ? 3 : 5;
+    const cgap = 20;
+    const cardW = Math.min(300, Math.floor((contentW - (perRow - 1) * cgap) / perRow));
+    const cardH = Math.round(cardW * 1.5);
+    const rows = Math.ceil(n / perRow);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    let ctx = canvas.getContext("2d");
+
+    const BODY_FONT = '30px "Noto Sans Thai", "Noto Sans", sans-serif';
+    const bodyLineH = 46;
+    ctx.font = BODY_FONT;
+    const bodyLines = wrapLines(ctx, body, contentW);
+
+    // คำนวณความสูงรวมก่อนตั้งขนาดจริง
+    let h = pad;
+    h += 66; // ชื่อแอป
+    h += 44; // รูปแบบการวางไพ่
+    h += 24; // เว้น
+    h += rows * (cardH + 44); // ไพ่ + ชื่อไพ่ใต้ใบ
+    h += 24; // เว้น
+    h += 2 + 34; // เส้นคั่น + เว้น
+    h += 46; // หัวข้อคำทำนาย
+    h += bodyLines.length * bodyLineH;
+    h += 40; // เว้นก่อน footer
+    h += 34; // footer
+    const H = Math.round(h + pad);
+
+    canvas.height = H;
+    ctx = canvas.getContext("2d"); // เปลี่ยน height ล้าง context ต้องตั้งใหม่
+
+    // พื้นหลังม่วงคราม ขลังๆ
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, "#251b57");
+    grad.addColorStop(1, "#3c1a63");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    let y = pad;
+    ctx.textAlign = "center";
+
+    // ชื่อแอป
+    ctx.fillStyle = "#f3e3b0";
+    ctx.font = 'bold 46px Georgia, "Noto Sans Thai", serif';
+    ctx.fillText("✷ Destiny Desk ✷", W / 2, y + 46);
+    y += 66;
+
+    // รูปแบบการวางไพ่
+    ctx.fillStyle = "#d9cff0";
+    ctx.font = '28px "Noto Sans Thai", sans-serif';
+    ctx.fillText(spread.th, W / 2, y + 30);
+    y += 44 + 24;
+
+    // ไพ่
+    for (let r = 0; r < rows; r++) {
+      const rowCards = selected.slice(r * perRow, (r + 1) * perRow);
+      const rowW = rowCards.length * cardW + (rowCards.length - 1) * cgap;
+      let x = (W - rowW) / 2;
+      for (let k = 0; k < rowCards.length; k++) {
+        const idx = r * perRow + k;
+        const img = imgs[idx];
+        ctx.save();
+        roundRectPath(ctx, x, y, cardW, cardH, 14);
+        ctx.clip();
+        if (img) {
+          ctx.drawImage(img, x, y, cardW, cardH);
+        } else {
+          ctx.fillStyle = "#1a1440";
+          ctx.fillRect(x, y, cardW, cardH);
+        }
+        ctx.restore();
+        roundRectPath(ctx, x, y, cardW, cardH, 14);
+        ctx.strokeStyle = "#d4af37";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        // ชื่อไพ่ใต้ใบ
+        ctx.fillStyle = "#f3e3b0";
+        ctx.font = '20px "Noto Sans Thai", sans-serif';
+        ctx.fillText(selected[idx].name, x + cardW / 2, y + cardH + 28, cardW + 10);
+        x += cardW + cgap;
+      }
+      y += cardH + 44;
     }
-    const ok = copyTextSync(text);
-    showToast(ok ? "คัดลอกผลไพ่แล้ว ✓ นำไปวางแชร์ให้เพื่อนได้เลย" : "คัดลอกไม่สำเร็จ ลองอีกครั้ง");
+    y += 24;
+
+    // เส้นคั่นทอง
+    ctx.strokeStyle = "rgba(212,175,55,0.6)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pad, y);
+    ctx.lineTo(W - pad, y);
+    ctx.stroke();
+    y += 2 + 34;
+
+    // หัวข้อคำทำนาย
+    ctx.fillStyle = "#f3e3b0";
+    ctx.font = 'bold 34px "Noto Sans Thai", serif';
+    ctx.fillText(heading, W / 2, y + 32);
+    y += 46;
+
+    // เนื้อคำทำนาย (ชิดซ้าย)
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#f4f0ff";
+    ctx.font = BODY_FONT;
+    for (const line of bodyLines) {
+      ctx.fillText(line, pad, y + 32);
+      y += bodyLineH;
+    }
+    y += 40;
+
+    // footer
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#b7a9dd";
+    ctx.font = '22px "Noto Sans Thai", sans-serif';
+    ctx.fillText("คำทำนายเพื่อความบันเทิงและการสำรวจตัวเอง · Destiny Desk", W / 2, y + 22);
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))), "image/png");
+    });
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ---------- แชร์ผลไพ่เป็นรูปภาพ (มีข้อความ/ดาวน์โหลดเป็น fallback) ----------
+  async function shareResult() {
+    if (selected.length === 0 || sharing) return;
+    setSharing(true);
+    try {
+      const blob = await buildShareImage();
+      const file = new File([blob], "destiny-desk-tarot.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "ผลไพ่ทาโรต์ของฉัน" });
+      } else {
+        downloadBlob(blob, "destiny-desk-tarot.png");
+        showToast("บันทึกรูปคำทำนายแล้ว 📷 นำไปแชร์ให้เพื่อนได้เลย");
+      }
+    } catch (err) {
+      if (err?.name === "AbortError") return; // ผู้ใช้กดยกเลิกเอง ไม่ต้องแจ้ง
+      // สำรอง: แชร์/คัดลอกเป็นข้อความ ถ้าสร้างรูปหรือแชร์ไฟล์ไม่ได้
+      const text = `🔮 ผลไพ่ทาโรต์ — ${spread.th}\n\n${shareBodyText()}\n\n— จาก Destiny Desk`;
+      if (navigator.share) {
+        navigator.share({ title: "ผลไพ่ทาโรต์ของฉัน", text }).catch(() => {});
+      } else {
+        const ok = copyTextSync(text);
+        showToast(ok ? "คัดลอกผลไพ่แล้ว ✓ นำไปวางแชร์ได้เลย" : "แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+      }
+    } finally {
+      setSharing(false);
+    }
   }
 
   // ---------- ทำนายด้วย AI (เรียก API route ฝั่ง server ที่ต่อ Gemini free tier) ----------
@@ -305,106 +512,42 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- โซนพัดไพ่ (TarotFan) เลื่อนดูแล้วแตะใบกลางเพื่อเลือก ---------- */}
-      {stage === "select" && (
-        <section className="deck-zone">
-          <p className="deck-hint">เลื่อนดูด้วยลูกศร/ปัดนิ้ว แล้วแตะไพ่ใบกลางเพื่อเลือก — {spread.th}</p>
+      {/* ---------- โซนพัดไพ่ (TarotFan) — ค้างไว้เสมอ แชตทำนายต่อข้างล่าง ---------- */}
+      <section className="deck-zone">
+        <p className="deck-hint">เลื่อนดูด้วยลูกศร/ปัดนิ้ว แล้วแตะไพ่ใบกลางเพื่อเลือก — {spread.th}</p>
 
-          <TarotFan
-            key={`${spreadId}-${deckVersion}`}
-            deck={deckOrder}
-            maxSelect={spread.count}
-            positions={spread.positions}
-            onConfirm={handleFanConfirm}
-          />
+        <TarotFan
+          key={`${spreadId}-${deckVersion}`}
+          deck={deckOrder}
+          maxSelect={spread.count}
+          positions={spread.positions}
+          onConfirm={handleFanConfirm}
+        />
 
-          <div className="deck-controls">
-            <button className="btn-deck" onClick={handleClearDeck}>
-              <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
-              เริ่มใหม่
-            </button>
-          </div>
-        </section>
-      )}
+        <div className="deck-controls">
+          <button className="btn-deck" onClick={handleClearDeck}>
+            <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
+            เริ่มใหม่
+          </button>
+        </div>
+      </section>
 
-      {/* ---------- โซนแสดงผลไพ่ที่เลือกแล้ว ---------- */}
+      {/* ---------- แชตทำนาย DeskMoo (ต่อจากส่วนเลือกไพ่ ไม่ทับกัน) ---------- */}
       {stage === "result" && (
         <section className="board-wrap">
-          <h2 className="section-title">{spread.th}</h2>
-
-          {spreadId !== "celtic" && (
-            <div className="card-row">
-              {selected.map((c, i) => (
-                <div className="card-slot dealt" key={i} style={{ animationDelay: `${i * 0.12}s` }}>
-                  <div className="pos-label">{c.pos?.th}</div>
-                  <TarotCard id={c.id} revealed className="size-lg" />
-                  <div className="card-caption show">
-                    <span className="en">{c.name}</span>
-                    {c.th}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {spreadId === "celtic" && (
-            <div className="celtic-scroll">
-              <div className="celtic-board">
-                {selected.map((c, i) => {
-                  const pos = c.pos;
-                  const label = (
-                    <div className="celtic-index">
-                      {pos.key}. {pos.th}
-                    </div>
-                  );
-                  return (
-                    <div
-                      key={i}
-                      className={`celtic-cell${pos.rotate ? " rotated" : ""}`}
-                      style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                    >
-                      {!pos.labelBelow && label}
-                      <TarotCard
-                        id={c.id}
-                        revealed
-                        className="size-sm is-open"
-                        onClick={() => setPopup({ ...c, idx: i })}
-                      />
-                      {pos.labelBelow && label}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="actions result-actions">
-            {!aiText && (
-              <button className="btn-deck btn-ai" onClick={requestAiReading} disabled={aiLoading}>
-                <Sparkles size={16} strokeWidth={2.2} aria-hidden="true" />
-                {aiLoading ? "กำลังทำนาย..." : "ทำนายด้วย AI"}
-              </button>
-            )}
-            <button className="btn-deck btn-share" onClick={shareResult}>
-              <Share2 size={16} strokeWidth={2.2} aria-hidden="true" />
-              แชร์ผลไพ่
-            </button>
-            <button className="btn-deck" onClick={handleClearDeck}>
-              <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
-              เลือกไพ่ใหม่
-            </button>
-          </div>
-
-          {aiError && <p className="ai-error">{aiError}</p>}
-          {aiText && (
-            <div className="ai-reading">
-              <h3 className="ai-reading-title">
-                <Sparkles size={18} strokeWidth={2.2} aria-hidden="true" />
-                คำทำนายจาก AI
-              </h3>
-              <p className="ai-reading-text">{aiText}</p>
-            </div>
-          )}
+          <div className="gold-rule" />
+          <DeskMooChat
+            key={selected.map((c) => c.id).join("-")}
+            selected={selected}
+            aiText={aiText}
+            aiLoading={aiLoading}
+            aiError={aiError}
+            sharing={sharing}
+            onRequestAI={requestAiReading}
+            onShare={shareResult}
+            onRestart={handleClearDeck}
+            onCardClick={(c, i) => c.pos?.key != null && setPopup({ ...c, idx: i })}
+          />
         </section>
       )}
 

@@ -24,3 +24,7 @@ yarn-error.log*
 # local env files
 .env*.local
 .vercel
+
+# รูปต้นฉบับอวตาร (เก็บในเครื่อง ใช้ public/deskmoo-avatar.png ที่ครอปแล้วพอ)
+/image.png
+/Deskmoo.png
