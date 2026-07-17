@@ -146,11 +146,12 @@ export default function DeskMooChat({
 
   const errorMessages = aiError ? [{ key: "err", text: aiError, typingMs: 800 }] : [];
 
-  // คำถามที่ผู้ใช้ถามต่อ + คำตอบของ DeskMoo (สลับซ้าย-ขวาแบบแชตจริง)
+  // ถามต่อ: คำถามผู้ใช้ (ขวา) → ไพ่ใหม่ที่เปิดให้ (ซ้าย) → คำตอบ DeskMoo (ซ้าย)
   const followUpMessages = useMemo(() => {
     const out = [];
     followUps.forEach((f, i) => {
       out.push({ key: `fq${i}`, who: "user", text: f.q });
+      if (f.card) out.push({ key: `fc${i}`, type: "onecard", card: f.card, typingMs: 650 });
       if (f.a) out.push({ key: `fa${i}`, text: f.a, accent: true, typingMs: Math.min(1400, 500 + f.a.length * 4) });
     });
     return out;
@@ -237,6 +238,15 @@ export default function DeskMooChat({
                     ))}
                   </div>
                 </div>
+              ) : m.type === "onecard" ? (
+                <div className="deskmoo-bubble">
+                  <div className="deskmoo-cards">
+                    <div className="deskmoo-card">
+                      <ChatCardImg id={m.card.id} />
+                      <span className="deskmoo-card-name">{m.card.name}</span>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className={`deskmoo-bubble${m.accent ? " accent" : ""}`}>
                   <RichText text={m.text} />
@@ -277,7 +287,7 @@ export default function DeskMooChat({
                 <input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  placeholder="ถาม DeskMoo ต่อได้เลย…"
+                  placeholder="ถามต่อ / เปลี่ยนเรื่องได้เลย เดี๋ยวเปิดไพ่ใหม่ให้…"
                   maxLength={200}
                   disabled={followUpLoading}
                   aria-label="พิมพ์คำถามต่อ"

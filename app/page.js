@@ -465,12 +465,14 @@ export default function Home() {
     }
   }
 
-  // ---------- ถามต่อในแชต: ส่งไพ่เดิม + คำทำนายย่อ ไปให้ DeskMoo ตอบสั้นๆ ----------
+  // ---------- ถามต่อในแชต: เปลี่ยนเรื่องได้ เปิดไพ่ใหม่ 1 ใบให้คำถามนั้น ----------
   async function askFollowUp(q) {
     const text = (q || "").trim();
     if (!text || followUpLoading || followUps.length >= MAX_FOLLOW_UPS || !aiText) return;
 
-    setFollowUps((prev) => [...prev, { q: text, a: "" }]); // โชว์คำถามผู้ใช้ก่อนเลย
+    // จั่วไพ่ใหม่ 1 ใบสำหรับคำถามนี้ (แบบหมอดูจริง ถามเรื่องใหม่ก็เปิดไพ่ใหม่)
+    const card = getCardById(Math.floor(Math.random() * TOTAL_CARDS));
+    setFollowUps((prev) => [...prev, { q: text, card, a: "" }]); // โชว์คำถาม + ไพ่ก่อนเลย
     setFollowUpLoading(true);
     try {
       const res = await fetch("/api/interpret", {
@@ -479,12 +481,10 @@ export default function Home() {
         body: JSON.stringify({
           mode: "followup",
           followUpQuestion: text,
-          priorReading: aiText,
           userName,
           purpose: purposeObj?.label,
-          question,
-          spreadLabel: spread.label,
-          cards: selected.map((c) => ({ name: c.name, pos: c.pos?.th, th: c.th })),
+          spreadLabel: "ไพ่ถามต่อ 1 ใบ",
+          cards: [{ name: card.name, pos: "คำถามที่ถามต่อ", th: card.th }],
         }),
       });
       const data = await res.json().catch(() => ({}));

@@ -11,7 +11,6 @@
 const MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite"];
 const ALLOWED_CARD_COUNTS = [1, 3, 10];
 const MAX_FIELD_LEN = 400;
-const MAX_CONTEXT_LEN = 700; // ตัดคำทำนายเดิมให้สั้นก่อนส่งกลับไปเป็นบริบท กัน prompt บวมทุกครั้งที่ถามต่อ
 
 function clip(str, max = MAX_FIELD_LEN) {
   return typeof str === "string" ? str.slice(0, max) : "";
@@ -38,14 +37,13 @@ export async function POST(request) {
     return Response.json({ error: "invalid_body" }, { status: 400 });
   }
 
-  const { userName, purpose, question, spreadLabel, cards, mode, followUpQuestion, priorReading } =
-    body || {};
+  const { userName, purpose, question, spreadLabel, cards, mode, followUpQuestion } = body || {};
 
   if (!Array.isArray(cards) || !ALLOWED_CARD_COUNTS.includes(cards.length)) {
     return Response.json({ error: "invalid_cards" }, { status: 400 });
   }
 
-  // โหมดถามต่อในแชต: ตอบสั้น ไม่ต้องอ่านไพ่ใหม่ทั้งชุด
+  // โหมดถามต่อในแชต: เปลี่ยนเรื่องได้ เปิดไพ่ใหม่ให้คำถามนั้น แล้วตอบสั้นๆ
   const isFollowUp = mode === "followup";
   if (isFollowUp && !clip(followUpQuestion)) {
     return Response.json({ error: "missing_question" }, { status: 400 });
@@ -77,19 +75,17 @@ export async function POST(request) {
 ไพ่ที่เธอเปิดได้:
 ${cardLines}`;
 
-  // โหมดถามต่อ: ตอบสั้นแบบแชต โยงไพ่เดิม ไม่อ่านไพ่ใหม่ ไม่ใส่ประโยคปิดท้าย
+  // โหมดถามต่อ: เพื่อนถามเรื่องใหม่ เธอเปิดไพ่ใหม่ 1 ใบให้คำถามนั้น แล้วอ่านสั้นๆ
   const prompt = isFollowUp
     ? `${persona}
 
-${context}
+ผู้ถามชื่อ: ${clip(userName) || "ไม่ระบุ"}
+เพื่อนถามต่อในแชตว่า: "${clip(followUpQuestion)}"
+เธอเลยเปิดไพ่ให้ใหม่ 1 ใบสำหรับคำถามนี้ ได้:
+${cardLines}
 
-คำทำนายที่เธอให้ไปแล้ว (ย่อ):
-${clip(priorReading, MAX_CONTEXT_LEN) || "-"}
-
-ตอนนี้เพื่อนถามต่อในแชตว่า: "${clip(followUpQuestion)}"
-
-ตอบคำถามนี้สั้นๆ แบบตอบแชตเพื่อน 1-2 ย่อหน้าสั้น (รวมไม่เกิน ~5 บรรทัด)
-โยงกับไพ่ที่เปิดไว้ด้านบน ตอบตรงคำถามเลย ไม่ต้องทักทายเปิด ไม่ต้องไล่อ่านไพ่ใหม่ทั้งชุด
+อ่านไพ่ใบนี้ตอบคำถามให้สั้นๆ แบบตอบแชตเพื่อน 1-2 ย่อหน้าสั้น (รวมไม่เกิน ~5 บรรทัด)
+โยงความหมายไพ่กับคำถามให้ตรง ตอบเข้าเรื่องเลย ไม่ต้องทักทายเปิด
 ห้ามใส่ประโยคปิดท้าย "มีข้อกังวลใจมาลองสุ่มไพ่เล่นได้ตลอดเลยนะ!" (ใช้เฉพาะคำทำนายหลัก)`
     : `${persona}
 
