@@ -1061,9 +1061,10 @@ body {
 .moo-card-back {
   position: relative;
   overflow: hidden;
+  /* โทนม่วงพลัม + ทอง (กลมกลืนกับธีมครีม/ม่วงอ่อน ทองเด่น) */
   background:
-    radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.28), transparent 60%),
-    linear-gradient(150deg, #2a3a72, #1c2752 55%, #131c3f);
+    radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.32), transparent 60%),
+    linear-gradient(150deg, #9c7cc0, #6d4f9c 55%, #513a7a);
 }
 /* แสงวิ่งพาดเฉียงไปมา */
 .moo-card-back::after {
