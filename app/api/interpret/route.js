@@ -11,9 +11,10 @@
 const MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite"];
 const ALLOWED_CARD_COUNTS = [1, 3, 10];
 const MAX_FIELD_LEN = 400;
+const MAX_CONTEXT_LEN = 700; // ตัดคำทำนายเดิมให้สั้นก่อนส่งกลับไปเป็นบริบท กัน prompt บวมทุกครั้งที่ถามต่อ
 
-function clip(str) {
-  return typeof str === "string" ? str.slice(0, MAX_FIELD_LEN) : "";
+function clip(str, max = MAX_FIELD_LEN) {
+  return typeof str === "string" ? str.slice(0, max) : "";
 }
 
 export async function POST(request) {
@@ -37,10 +38,17 @@ export async function POST(request) {
     return Response.json({ error: "invalid_body" }, { status: 400 });
   }
 
-  const { userName, purpose, question, spreadLabel, cards } = body || {};
+  const { userName, purpose, question, spreadLabel, cards, mode, followUpQuestion, priorReading } =
+    body || {};
 
   if (!Array.isArray(cards) || !ALLOWED_CARD_COUNTS.includes(cards.length)) {
     return Response.json({ error: "invalid_cards" }, { status: 400 });
+  }
+
+  // โหมดถามต่อในแชต: ตอบสั้น ไม่ต้องอ่านไพ่ใหม่ทั้งชุด
+  const isFollowUp = mode === "followup";
+  if (isFollowUp && !clip(followUpQuestion)) {
+    return Response.json({ error: "missing_question" }, { status: 400 });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -52,22 +60,40 @@ export async function POST(request) {
     .map((c, i) => `${i + 1}. ${clip(c.name)}${c.pos ? ` (${clip(c.pos)})` : ""} — ความหมาย: ${clip(c.th)}`)
     .join("\n");
 
-  const prompt = `เธอคือ "DeskMoo" เพื่อนมู (หมอดูไพ่ทาโรต์) วัยรุ่นสุดชิล เป็นกันเอง อบอุ่น และเข้าใจชีวิต
+  const persona = `เธอคือ "DeskMoo" เพื่อนมู (หมอดูไพ่ทาโรต์) วัยรุ่นสุดชิล เป็นกันเอง อบอุ่น และเข้าใจชีวิต
 กำลังแชตทักมาทำนายไพ่ให้เพื่อนสนิทอ่านในแอปแชต
 
 โทนการพูด:
 - คุยแบบเพื่อนสนิททักไลน์/ไอจี ไม่ทางการ ไม่ใช้ "ค่ะ/ครับ" แทนตัวเองว่า "เรา" เรียกผู้ถามว่า "เธอ"
 - สนุก มีพลังบวก ใส่อีโมจิได้บ้างพอประมาณ (อย่าเยอะเกิน) ใช้ภาษาวัยรุ่นได้แต่ยังอ่านง่าย
-- ถึงจะกันเอง แต่ต้องให้ข้อคิด/มุมมองที่ลึกและใช้ได้จริง ไม่ใช่แค่ปลอบใจลอยๆ
+- ถึงจะกันเอง แต่ต้องให้ข้อคิด/มุมมองที่ลึกและใช้ได้จริง ไม่ใช่แค่ปลอบใจลอยๆ`;
 
-ข้อมูลผู้ถาม:
+  const context = `ข้อมูลผู้ถาม:
 - ชื่อ: ${clip(userName) || "ไม่ระบุ"}
 - เรื่องที่อยากดู: ${clip(purpose) || "ภาพรวมชีวิต"}
 - คำถาม: ${clip(question) || "ขอคำแนะนำภาพรวม"}
 - รูปแบบการวางไพ่: ${clip(spreadLabel) || "-"}
 
 ไพ่ที่เธอเปิดได้:
-${cardLines}
+${cardLines}`;
+
+  // โหมดถามต่อ: ตอบสั้นแบบแชต โยงไพ่เดิม ไม่อ่านไพ่ใหม่ ไม่ใส่ประโยคปิดท้าย
+  const prompt = isFollowUp
+    ? `${persona}
+
+${context}
+
+คำทำนายที่เธอให้ไปแล้ว (ย่อ):
+${clip(priorReading, MAX_CONTEXT_LEN) || "-"}
+
+ตอนนี้เพื่อนถามต่อในแชตว่า: "${clip(followUpQuestion)}"
+
+ตอบคำถามนี้สั้นๆ แบบตอบแชตเพื่อน 1-2 ย่อหน้าสั้น (รวมไม่เกิน ~5 บรรทัด)
+โยงกับไพ่ที่เปิดไว้ด้านบน ตอบตรงคำถามเลย ไม่ต้องทักทายเปิด ไม่ต้องไล่อ่านไพ่ใหม่ทั้งชุด
+ห้ามใส่ประโยคปิดท้าย "มีข้อกังวลใจมาลองสุ่มไพ่เล่นได้ตลอดเลยนะ!" (ใช้เฉพาะคำทำนายหลัก)`
+    : `${persona}
+
+${context}
 
 ช่วยอ่านไพ่ทุกใบให้ โยงกับคำถาม/เรื่องที่เธอสนใจจริงๆ เล่าเป็นเรื่องราวลื่นๆ กระชับ ไม่เกิน 4-5 ย่อหน้าสั้นๆ
 สำคัญ: อย่าเกริ่นหรือทักทายเปิดเรื่องเลย (ห้ามขึ้นต้นแบบ "เฮ้ เธอ! วันนี้เราหยิบไพ่..." / "สวัสดี" / "วันนี้เราสับไพ่ให้...")
@@ -80,9 +106,9 @@ ${cardLines}
     contents: [{ parts: [{ text: prompt }] }],
     // thinkingBudget: 0 = ปิดโหมด "คิดในใจ" ของโมเดล 3.x (ไม่งั้นมันกิน token หมดจนคำตอบโดนตัด
     // MAX_TOKENS กลางประโยค) — ปิดแล้วคำตอบจริงเต็ม + ใช้ token น้อยลงด้วย
-    // maxOutputTokens 1500 = เผื่อสเปรด 10 ใบที่คำทำนายยาว ให้จบประโยคพอดี
+    // คำทำนายหลัก 1500 (เผื่อสเปรด 10 ใบ), ถามต่อ 550 พอ (ตอบสั้นแบบแชต + ประหยัดโควต้า)
     generationConfig: {
-      maxOutputTokens: 1500,
+      maxOutputTokens: isFollowUp ? 550 : 1500,
       temperature: 0.85,
       thinkingConfig: { thinkingBudget: 0 },
     },

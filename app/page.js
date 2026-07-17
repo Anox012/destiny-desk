@@ -118,6 +118,11 @@ export default function Home() {
   const [aiError, setAiError] = useState("");
   const [sharing, setSharing] = useState(false);
 
+  // ---------- ถามต่อในแชต (จำกัดจำนวน กันโควต้าฟรีหมดเร็ว) ----------
+  const MAX_FOLLOW_UPS = 5;
+  const [followUps, setFollowUps] = useState([]); // [{ q, a }]
+  const [followUpLoading, setFollowUpLoading] = useState(false);
+
   const spread = useMemo(() => getSpread(spreadId), [spreadId]);
   const purposeObj = PURPOSES.find((p) => p.id === purpose);
 
@@ -181,6 +186,8 @@ export default function Home() {
     setAiText("");
     setAiError("");
     setAiLoading(false);
+    setFollowUps([]);
+    setFollowUpLoading(false);
     setDeckOrder(shuffleIds());
     setDeckVersion((v) => v + 1);
     showToast("เริ่มใหม่แล้ว ✷ เลือกไพ่ได้เลย");
@@ -458,6 +465,43 @@ export default function Home() {
     }
   }
 
+  // ---------- ถามต่อในแชต: ส่งไพ่เดิม + คำทำนายย่อ ไปให้ DeskMoo ตอบสั้นๆ ----------
+  async function askFollowUp(q) {
+    const text = (q || "").trim();
+    if (!text || followUpLoading || followUps.length >= MAX_FOLLOW_UPS || !aiText) return;
+
+    setFollowUps((prev) => [...prev, { q: text, a: "" }]); // โชว์คำถามผู้ใช้ก่อนเลย
+    setFollowUpLoading(true);
+    try {
+      const res = await fetch("/api/interpret", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "followup",
+          followUpQuestion: text,
+          priorReading: aiText,
+          userName,
+          purpose: purposeObj?.label,
+          question,
+          spreadLabel: spread.label,
+          cards: selected.map((c) => ({ name: c.name, pos: c.pos?.th, th: c.th })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const answer =
+        res.ok && data.text
+          ? data.text
+          : aiErrorMessage(res.status === 429 ? "quota" : data.error || "unknown", data.detail);
+      setFollowUps((prev) => prev.map((f, i) => (i === prev.length - 1 ? { ...f, a: answer } : f)));
+    } catch (_) {
+      setFollowUps((prev) =>
+        prev.map((f, i) => (i === prev.length - 1 ? { ...f, a: aiErrorMessage("unknown") } : f))
+      );
+    } finally {
+      setFollowUpLoading(false);
+    }
+  }
+
   return (
     <main className="app">
       <Starfield />
@@ -543,6 +587,10 @@ export default function Home() {
             aiLoading={aiLoading}
             aiError={aiError}
             sharing={sharing}
+            followUps={followUps}
+            followUpLoading={followUpLoading}
+            followUpsLeft={MAX_FOLLOW_UPS - followUps.length}
+            onAskFollowUp={askFollowUp}
             onRequestAI={requestAiReading}
             onShare={shareResult}
             onRestart={handleClearDeck}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Share2, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { RotateCcw, Send, Share2, Sparkles, Volume2, VolumeX } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // เสียง "ป๊อป" ตอนข้อความเด้งเข้า (สร้างสดด้วย Web Audio ไม่ต้องมีไฟล์เสียง)
@@ -94,6 +94,10 @@ export default function DeskMooChat({
   aiLoading,
   aiError,
   sharing,
+  followUps = [],
+  followUpLoading,
+  followUpsLeft = 0,
+  onAskFollowUp,
   onRequestAI,
   onShare,
   onRestart,
@@ -102,6 +106,7 @@ export default function DeskMooChat({
   const [visible, setVisible] = useState(0);
   const [typing, setTyping] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [draft, setDraft] = useState("");
   const scrollRef = useRef(null);
   const rootRef = useRef(null);
   const soundRef = useRef(soundOn);
@@ -140,15 +145,32 @@ export default function DeskMooChat({
   }, [aiText]);
 
   const errorMessages = aiError ? [{ key: "err", text: aiError, typingMs: 800 }] : [];
+
+  // คำถามที่ผู้ใช้ถามต่อ + คำตอบของ DeskMoo (สลับซ้าย-ขวาแบบแชตจริง)
+  const followUpMessages = useMemo(() => {
+    const out = [];
+    followUps.forEach((f, i) => {
+      out.push({ key: `fq${i}`, who: "user", text: f.q });
+      if (f.a) out.push({ key: `fa${i}`, text: f.a, accent: true, typingMs: Math.min(1400, 500 + f.a.length * 4) });
+    });
+    return out;
+  }, [followUps]);
+
   const messages = useMemo(
-    () => [...baseMessages, ...aiMessages, ...errorMessages],
-    [baseMessages, aiMessages, aiError] // eslint-disable-line react-hooks/exhaustive-deps
+    () => [...baseMessages, ...aiMessages, ...errorMessages, ...followUpMessages],
+    [baseMessages, aiMessages, aiError, followUpMessages] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  // เครื่องทยอยเผยข้อความ: โชว์ typing ค้างช่วงหนึ่ง แล้วเด้ง bubble + เสียง
+  // เครื่องทยอยเผยข้อความ: ของ DeskMoo โชว์ typing ก่อน, ของผู้ใช้เด้งทันที (เพราะเพิ่งพิมพ์เอง)
   useEffect(() => {
     if (visible >= messages.length) {
       setTyping(false);
+      return;
+    }
+    const next = messages[visible];
+    if (next.who === "user") {
+      setTyping(false);
+      setVisible((v) => v + 1);
       return;
     }
     setTyping(true);
@@ -156,7 +178,7 @@ export default function DeskMooChat({
       setTyping(false);
       setVisible((v) => v + 1);
       if (soundRef.current) playPop();
-    }, messages[visible].typingMs || 900);
+    }, next.typingMs || 900);
     return () => clearTimeout(t);
   }, [visible, messages]);
 
@@ -164,10 +186,12 @@ export default function DeskMooChat({
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [visible, typing, aiLoading]);
+  }, [visible, typing, aiLoading, followUpLoading]);
 
   const shown = messages.slice(0, visible);
-  const showTypingBubble = typing || (aiLoading && visible >= messages.length && !aiError);
+  const showTypingBubble =
+    typing || (visible >= messages.length && !aiError && (aiLoading || followUpLoading));
+  const canAsk = !!aiText && !aiError && followUpsLeft > 0 && !followUpLoading;
 
   return (
     <div className="deskmoo" ref={rootRef}>
@@ -190,29 +214,37 @@ export default function DeskMooChat({
 
       {/* พื้นที่ข้อความ */}
       <div className="deskmoo-body" ref={scrollRef}>
-        {shown.map((m) => (
-          <div className="deskmoo-row bubble-pop" key={m.key}>
-            <div className="deskmoo-av">
-              <DeskMooAvatar size={30} />
-            </div>
-            {m.type === "cards" ? (
-              <div className={`deskmoo-bubble${m.accent ? " accent" : ""}`}>
-                <div className="deskmoo-cards">
-                  {selected.map((c, i) => (
-                    <div className="deskmoo-card" key={i} onClick={() => onCardClick?.(c, i)}>
-                      <ChatCardImg id={c.id} />
-                      <span className="deskmoo-card-name">{c.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className={`deskmoo-bubble${m.accent ? " accent" : ""}`}>
+        {shown.map((m) =>
+          m.who === "user" ? (
+            <div className="deskmoo-row is-user bubble-pop" key={m.key}>
+              <div className="deskmoo-bubble user">
                 <RichText text={m.text} />
               </div>
-            )}
-          </div>
-        ))}
+            </div>
+          ) : (
+            <div className="deskmoo-row bubble-pop" key={m.key}>
+              <div className="deskmoo-av">
+                <DeskMooAvatar size={30} />
+              </div>
+              {m.type === "cards" ? (
+                <div className={`deskmoo-bubble${m.accent ? " accent" : ""}`}>
+                  <div className="deskmoo-cards">
+                    {selected.map((c, i) => (
+                      <div className="deskmoo-card" key={i} onClick={() => onCardClick?.(c, i)}>
+                        <ChatCardImg id={c.id} />
+                        <span className="deskmoo-card-name">{c.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className={`deskmoo-bubble${m.accent ? " accent" : ""}`}>
+                  <RichText text={m.text} />
+                </div>
+              )}
+            </div>
+          )
+        )}
 
         {showTypingBubble && (
           <div className="deskmoo-row">
@@ -228,7 +260,43 @@ export default function DeskMooChat({
         )}
       </div>
 
-      {/* แถบปุ่ม (คล้ายช่องพิมพ์ของแชต) */}
+      {/* ช่องถามต่อ — โผล่หลังคำทำนายหลักมาแล้ว จำกัดจำนวนกันโควต้าฟรีหมดเร็ว */}
+      {!!aiText && !aiError && (
+        <div className="deskmoo-ask">
+          {followUpsLeft > 0 ? (
+            <>
+              <form
+                className="deskmoo-ask-bar"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!canAsk) return;
+                  onAskFollowUp?.(draft);
+                  setDraft("");
+                }}
+              >
+                <input
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="ถาม DeskMoo ต่อได้เลย…"
+                  maxLength={200}
+                  disabled={followUpLoading}
+                  aria-label="พิมพ์คำถามต่อ"
+                />
+                <button type="submit" disabled={!canAsk || !draft.trim()} aria-label="ส่งคำถาม">
+                  <Send size={16} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              </form>
+              <span className="deskmoo-ask-left">
+                {followUpLoading ? "DeskMoo กำลังพิมพ์…" : `ถามต่อได้อีก ${followUpsLeft} คำถาม`}
+              </span>
+            </>
+          ) : (
+            <span className="deskmoo-ask-left">ถามต่อครบแล้ว — อยากคุยต่อ กด “เลือกไพ่ใหม่” เปิดรอบใหม่ได้เลย</span>
+          )}
+        </div>
+      )}
+
+      {/* แถบปุ่ม */}
       <div className="deskmoo-actions">
         {/* DeskMoo ทำนายเต็มๆ อัตโนมัติ — โชว์ปุ่มลองใหม่เฉพาะตอนอ่านพลาด (เช่นโควต้าเต็ม) */}
         {aiError && (
