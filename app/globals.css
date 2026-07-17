@@ -1061,9 +1061,10 @@ body {
 .moo-card-back {
   position: relative;
   overflow: hidden;
+  /* โทนไวน์/เบอร์กันดี + ทอง (อุ่น เข้ากับครีม/ทอง ไม่ตัดแรงเหมือนน้ำเงิน) */
   background:
-    radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.28), transparent 60%),
-    linear-gradient(150deg, #2a3a72, #1c2752 55%, #131c3f);
+    radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.3), transparent 60%),
+    linear-gradient(150deg, #7a3350, #58223d 55%, #3d1729);
 }
 /* แสงวิ่งพาดเฉียงไปมา */
 .moo-card-back::after {
