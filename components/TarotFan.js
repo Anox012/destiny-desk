@@ -23,12 +23,13 @@ function FaceImg({ id }) {
 }
 
 // num = ลำดับไพ่ในกอง (ไม่ใช่หมายเลขไพ่จริง) โชว์ให้เห็นว่าปัดแล้วเปลี่ยนใบจริง
+// โทนกรมท่า-ทอง เข้ากับแบรนด์ + มีแสงวิ่งพาดผ่าน (.moo-card-back)
 function CardBack({ num }) {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
-      <span className="text-2xl text-indigo-200 drop-shadow-[0_0_8px_rgba(165,180,252,0.65)]">✷</span>
+    <div className="moo-card-back flex h-full w-full flex-col items-center justify-center gap-1">
+      <span className="relative z-10 text-2xl text-amber-200 drop-shadow-[0_0_8px_rgba(212,175,55,0.7)]">✷</span>
       {num != null && (
-        <span className="rounded-full bg-black/25 px-2 text-sm font-bold text-amber-200/90">{num}</span>
+        <span className="relative z-10 rounded-full bg-black/30 px-2 text-sm font-bold text-amber-200">{num}</span>
       )}
     </div>
   );
@@ -215,8 +216,8 @@ export default function TarotFan({ deck, maxSelect, positions, onConfirm }) {
                 className={`h-full w-full overflow-hidden rounded-xl border-2 shadow-xl transition-colors duration-300 ${
                   isRevealed
                     ? "border-amber-300 shadow-amber-400/30"
-                    : "border-indigo-300/50 shadow-indigo-950/40"
-                }`}
+                    : "border-amber-200/45 shadow-indigo-950/40"
+                }${isCenter && !isRevealed ? " moo-center-card" : ""}`}
               >
                 {isRevealed ? <FaceImg id={id} /> : <CardBack num={centerIndex + offset + 1} />}
               </div>

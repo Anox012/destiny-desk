@@ -30,35 +30,24 @@ function playPop() {
 }
 
 // ---------------------------------------------------------------------------
-// มาสคอต DeskMoo — หมูมูน้อยสายมู 🐷 (SVG น่ารัก โทนม่วงนีออน)
+// มาสคอต DeskMoo — น้องวัวจักรวาล (รูปจริงของแบรนด์ ครอปหัวมาทำ avatar)
 // ---------------------------------------------------------------------------
 function DeskMooAvatar({ size = 40 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id="moo-bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#c026d3" />
-          <stop offset="1" stopColor="#7c3aed" />
-        </linearGradient>
-      </defs>
-      <circle cx="24" cy="24" r="24" fill="url(#moo-bg)" />
-      {/* หูหมู */}
-      <path d="M12 15 L18 12 L17 20 Z" fill="#f9a8d4" />
-      <path d="M36 15 L30 12 L31 20 Z" fill="#f9a8d4" />
-      {/* หน้า */}
-      <circle cx="24" cy="26" r="13" fill="#fbcfe8" />
-      {/* ตา */}
-      <circle cx="19.5" cy="24" r="2.1" fill="#3b0764" />
-      <circle cx="28.5" cy="24" r="2.1" fill="#3b0764" />
-      <circle cx="20.2" cy="23.3" r="0.7" fill="#fff" />
-      <circle cx="29.2" cy="23.3" r="0.7" fill="#fff" />
-      {/* จมูกหมู */}
-      <ellipse cx="24" cy="30" rx="5" ry="3.4" fill="#f472b6" />
-      <circle cx="22.3" cy="30" r="0.9" fill="#9d174d" />
-      <circle cx="25.7" cy="30" r="0.9" fill="#9d174d" />
-      {/* ดาวมูบนหัว */}
-      <text x="24" y="10" fontSize="7" textAnchor="middle" fill="#fde68a">✦</text>
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/deskmoo-avatar.png"
+      alt="DeskMoo"
+      width={size}
+      height={size}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        objectFit: "cover",
+        border: "1.5px solid var(--gold-soft)",
+      }}
+    />
   );
 }
 
@@ -100,8 +89,6 @@ function RichText({ text }) {
  * ทยอยเด้ง bubble ทีละอัน + typing animation + เสียงป๊อป + auto-scroll
  */
 export default function DeskMooChat({
-  userName,
-  spread,
   selected,
   aiText,
   aiLoading,
@@ -116,13 +103,17 @@ export default function DeskMooChat({
   const [typing, setTyping] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const scrollRef = useRef(null);
-  const endRef = useRef(null);
+  const rootRef = useRef(null);
   const soundRef = useRef(soundOn);
   soundRef.current = soundOn;
 
+  // ตอนแชตโผล่มาครั้งแรก เลื่อนหน้าลงมาให้เห็นแชตพอดี (ครั้งเดียว ไม่กระตุกส่วนเลือกไพ่ด้านบน)
+  useEffect(() => {
+    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   // ข้อความชุดแรก (ล็อกไว้ตอน mount — ไพ่/ชื่อไม่เปลี่ยนระหว่างอยู่หน้าผล)
   const baseMessages = useMemo(() => {
-    const name = (userName || "").trim() || "เธอ";
     const meaning =
       selected.length === 1
         ? `ไพ่ของเธอคือ **${selected[0].name}** 💫\n${selected[0].th}`
@@ -130,11 +121,10 @@ export default function DeskMooChat({
             .map((c, i) => `${i + 1}. **${c.name}**${c.pos?.th ? ` (${c.pos.th})` : ""}`)
             .join("\n")}`;
     return [
-      { key: "g1", text: `เฮ้ ${name}! 🔮✨`, typingMs: 650 },
-      { key: "g2", text: "เราคือ DeskMoo เอง~ เพื่อนมูประจำตัวเธอ 🐷 ขอส่องไพ่ที่เพิ่งหยิบแป๊บนะ 👀", typingMs: 950 },
+      { key: "lead", text: `ขอส่องไพ่ที่เธอเพิ่งเปิดแป๊บนะ 👀🔮`, typingMs: 700 },
       { key: "cards", type: "cards", typingMs: 700 },
-      { key: "meaning", text: meaning, typingMs: 1100 },
-      { key: "nudge", text: "อยากรู้ลึกกว่านี้? กดปุ่ม “ให้ DeskMoo ทำนายเต็มๆ” ข้างล่างเลย เดี๋ยวจัดให้! 💜", typingMs: 950 },
+      { key: "meaning", text: meaning, typingMs: 1000 },
+      { key: "nudge", text: "กำลังอ่านคำทำนายให้แบบเต็มๆ รอแป๊บนะ~ ✨", typingMs: 850 },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -170,25 +160,23 @@ export default function DeskMooChat({
     return () => clearTimeout(t);
   }, [visible, messages]);
 
-  // เลื่อนลงล่างสุดทุกครั้งที่มี bubble/typing ใหม่ (ดันข้อความเก่าขึ้นแบบแชตจริง)
+  // เลื่อน "ภายในกล่องแชต" ลงล่างสุด (ไม่เลื่อนทั้งหน้า ส่วนเลือกไพ่ด้านบนจึงอยู่นิ่ง)
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [visible, typing, aiLoading]);
 
   const shown = messages.slice(0, visible);
   const showTypingBubble = typing || (aiLoading && visible >= messages.length && !aiError);
-  const allBaseShown = visible >= baseMessages.length;
 
   return (
-    <div className="deskmoo">
-      {/* แถบหัวแชต */}
+    <div className="deskmoo" ref={rootRef}>
+      {/* หัว: มูน้อย + ชื่อ (ลอย ไม่มีแถบทึบ) */}
       <div className="deskmoo-head">
         <DeskMooAvatar size={42} />
         <div className="deskmoo-head-info">
           <span className="deskmoo-name">DeskMoo</span>
-          <span className="deskmoo-status">
-            <i className="deskmoo-dot" /> กำลังใช้งาน
-          </span>
+          <span className="deskmoo-status">เพื่อนมูสายมูของเธอ ✨</span>
         </div>
         <button
           type="button"
@@ -238,15 +226,15 @@ export default function DeskMooChat({
             </div>
           </div>
         )}
-        <div ref={endRef} />
       </div>
 
       {/* แถบปุ่ม (คล้ายช่องพิมพ์ของแชต) */}
       <div className="deskmoo-actions">
-        {!aiText && allBaseShown && (
+        {/* DeskMoo ทำนายเต็มๆ อัตโนมัติ — โชว์ปุ่มลองใหม่เฉพาะตอนอ่านพลาด (เช่นโควต้าเต็ม) */}
+        {aiError && (
           <button className="deskmoo-btn primary" onClick={onRequestAI} disabled={aiLoading}>
             <Sparkles size={16} strokeWidth={2.2} aria-hidden="true" />
-            {aiLoading ? "DeskMoo กำลังพิมพ์..." : "ให้ DeskMoo ทำนายเต็มๆ"}
+            {aiLoading ? "DeskMoo กำลังพิมพ์..." : "ลองอ่านใหม่อีกครั้ง"}
           </button>
         )}
         <button className="deskmoo-btn" onClick={onShare} disabled={sharing}>

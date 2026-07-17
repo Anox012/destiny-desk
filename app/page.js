@@ -149,6 +149,15 @@ export default function Home() {
     return () => clearTimeout(toastTimer.current);
   }, []);
 
+  // เข้าหน้าแชตผล -> ให้ DeskMoo ทำนายเต็มๆ อัตโนมัติ (ไม่ต้องกดปุ่ม)
+  // ยิงตอนเข้า stage result เลย (ขนานกับตอนบับเบิลทยอยเด้ง) พออ่านเสร็จค่อยเด้งเข้าแชต
+  useEffect(() => {
+    if (stage === "result" && selected.length > 0 && !aiText && !aiLoading && !aiError) {
+      requestAiReading();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
   function showToast(msg) {
     clearTimeout(toastTimer.current);
     setToast(msg);
@@ -157,6 +166,7 @@ export default function Home() {
 
   // ---------- ยืนยันไพ่ที่เลือกจาก TarotFan ----------
   function handleFanConfirm(ids) {
+    if (stage === "result") return; // กันกดยืนยันซ้ำ (TarotFan ยังค้างอยู่ด้านบน)
     const picked = ids.map((id, i) => ({ ...getCardById(id), pos: spread.positions[i] }));
     setSelected(picked);
     setStage("result");
@@ -502,35 +512,32 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- โซนพัดไพ่ (TarotFan) เลื่อนดูแล้วแตะใบกลางเพื่อเลือก ---------- */}
-      {stage === "select" && (
-        <section className="deck-zone">
-          <p className="deck-hint">เลื่อนดูด้วยลูกศร/ปัดนิ้ว แล้วแตะไพ่ใบกลางเพื่อเลือก — {spread.th}</p>
+      {/* ---------- โซนพัดไพ่ (TarotFan) — ค้างไว้เสมอ แชตทำนายต่อข้างล่าง ---------- */}
+      <section className="deck-zone">
+        <p className="deck-hint">เลื่อนดูด้วยลูกศร/ปัดนิ้ว แล้วแตะไพ่ใบกลางเพื่อเลือก — {spread.th}</p>
 
-          <TarotFan
-            key={`${spreadId}-${deckVersion}`}
-            deck={deckOrder}
-            maxSelect={spread.count}
-            positions={spread.positions}
-            onConfirm={handleFanConfirm}
-          />
+        <TarotFan
+          key={`${spreadId}-${deckVersion}`}
+          deck={deckOrder}
+          maxSelect={spread.count}
+          positions={spread.positions}
+          onConfirm={handleFanConfirm}
+        />
 
-          <div className="deck-controls">
-            <button className="btn-deck" onClick={handleClearDeck}>
-              <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
-              เริ่มใหม่
-            </button>
-          </div>
-        </section>
-      )}
+        <div className="deck-controls">
+          <button className="btn-deck" onClick={handleClearDeck}>
+            <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
+            เริ่มใหม่
+          </button>
+        </div>
+      </section>
 
-      {/* ---------- ผลไพ่: หน้าต่างแชต DeskMoo ---------- */}
+      {/* ---------- แชตทำนาย DeskMoo (ต่อจากส่วนเลือกไพ่ ไม่ทับกัน) ---------- */}
       {stage === "result" && (
         <section className="board-wrap">
+          <div className="gold-rule" />
           <DeskMooChat
             key={selected.map((c) => c.id).join("-")}
-            userName={userName}
-            spread={spread}
             selected={selected}
             aiText={aiText}
             aiLoading={aiLoading}
