@@ -143,7 +143,7 @@ export default function DeskMooChat({
       list.push({ key: "u-purpose", who: "user", text: purposeLabel });
       list.push({
         key: "q-count",
-        text: "โอเคเลย~ อยากเปิดไพ่กี่ใบดี\n(10 ใบ = ดูภาพรวมชีวิตช่วงนี้ เปิดได้เดือนละครั้งนะ)",
+        text: "โอเคเลย~ อยากให้อ่านแบบไหนดี\n(5 ใบ = เจาะลึกเรื่องนี้โดยเฉพาะ · 10 ใบ = ภาพรวมชีวิต เปิดได้เดือนละครั้ง)",
         typingMs: 900,
       });
     }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TOTAL_CARDS, getCardById } from "@/lib/cards";
-import { SPREADS, PURPOSES, getSpread } from "@/lib/spreads";
+import { SPREADS, PURPOSES, getSpread, spreadOptionsFor } from "@/lib/spreads";
 import Starfield from "@/components/Starfield";
 import DeskMooChat from "@/components/DeskMooChat";
 
@@ -134,6 +134,11 @@ export default function Home() {
 
   const spread = useMemo(() => (spreadId ? getSpread(spreadId) : null), [spreadId]);
   const purposeObj = purpose ? PURPOSES.find((p) => p.id === purpose) : null;
+  // เมนูรูปแบบไพ่ปรับตามหัวข้อที่เลือก: รายวัน 1 ใบ · สเปรดเฉพาะหัวข้อ 5 ใบ · ภาพรวมชีวิต 10 ใบ
+  const spreadOptions = useMemo(
+    () => (purpose ? spreadOptionsFor(purpose) : [SPREADS.single]),
+    [purpose]
+  );
 
   const toastTimer = useRef(null);
 
@@ -609,7 +614,7 @@ export default function Home() {
           spreadLabel={spread ? spread.th : null}
           question={question}
           purposeOptions={PURPOSES}
-          spreadOptions={Object.values(SPREADS)}
+          spreadOptions={spreadOptions}
           celticLockedUntil={celticLockedUntil}
           deck={deckOrder}
           deckVersion={deckVersion}
