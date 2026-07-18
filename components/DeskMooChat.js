@@ -102,6 +102,8 @@ export default function DeskMooChat({
   deckVersion = 0,
   spreadCount = 1,
   spreadPositions = [],
+  followSpreadCount = 1,
+  followSpreadPositions = [],
   selected = [],
   aiText,
   aiLoading,
@@ -110,12 +112,15 @@ export default function DeskMooChat({
   followUps = [],
   followUpLoading,
   followUpsLeft = 0,
+  soundOn = true,
+  onToggleSound,
   onPickPurpose,
   onPickSpread,
   onSubmitQuestion,
   onSkipQuestion,
   onConfirmCards,
   onAskFollowUp,
+  onPickFollowSpread,
   onConfirmFollowCard,
   onRestart,
   onShare,
@@ -123,12 +128,12 @@ export default function DeskMooChat({
 }) {
   const [visible, setVisible] = useState(0);
   const [typing, setTyping] = useState(false);
-  const [soundOn, setSoundOn] = useState(true);
   const [draft, setDraft] = useState("");
   const scrollRef = useRef(null);
   const soundRef = useRef(soundOn);
   soundRef.current = soundOn;
 
+  const isOverview = spreadCount >= 10; // ไพ่ 10 ใบ = ภาพรวมชีวิต ไม่ต้องถามคำถาม
   const questionDone = step === "pick" || step === "reading";
 
   // ประวัติบทสนทนา (คำนวณจาก state ปัจจุบัน) — ตัวควบคุม (ชิป/กองไพ่/ช่องพิมพ์) เรนเดอร์แยกด้านล่าง
@@ -138,15 +143,24 @@ export default function DeskMooChat({
       list.push({ key: "u-purpose", who: "user", text: purposeLabel });
       list.push({
         key: "q-count",
-        text: "โอเคเลย~ อยากเปิดไพ่กี่ใบดี\n(10 ใบ = ดูภาพรวมช่วง 3 เดือน เปิดได้ 3 เดือนครั้งนะ)",
+        text: "โอเคเลย~ อยากเปิดไพ่กี่ใบดี\n(10 ใบ = ดูภาพรวมชีวิตช่วงนี้ เปิดได้เดือนละครั้งนะ)",
         typingMs: 900,
       });
     }
     if (spreadLabel) {
       list.push({ key: "u-spread", who: "user", text: spreadLabel });
-      list.push({ key: "q-ask", text: "มีอะไรในใจอยากถามเป็นพิเศษไหม พิมพ์มาได้เลย หรือกด “ข้าม” ก็ได้", typingMs: 900 });
+      if (isOverview) {
+        // 10 ใบ = ดูภาพรวมชีวิต ข้ามการถามคำถาม เข้าเปิดไพ่เลย
+        list.push({
+          key: "q-pick",
+          text: "อันนี้ดูภาพรวมชีวิตช่วงนี้ให้เลยนะ~ แตะไพ่ใบกลางในกองเพื่อเปิดทีละใบจนครบ 10 ใบ 👇",
+          typingMs: 850,
+        });
+      } else {
+        list.push({ key: "q-ask", text: "มีอะไรในใจอยากถามเป็นพิเศษไหม พิมพ์มาได้เลย หรือกด “ข้าม” ก็ได้", typingMs: 900 });
+      }
     }
-    if (questionDone) {
+    if (!isOverview && questionDone) {
       list.push({ key: "u-question", who: "user", text: (question || "").trim() || "ขอดูภาพรวมเลย" });
       list.push({ key: "q-pick", text: "จัดให้~ แตะไพ่ใบกลางในกองเพื่อเลือกเลย 👇", typingMs: 800 });
     }
@@ -162,16 +176,19 @@ export default function DeskMooChat({
       if (aiError) list.push({ key: "err", text: aiError, typingMs: 800 });
       followUps.forEach((f, i) => {
         list.push({ key: `fq${i}`, who: "user", text: f.q });
-        if (f.card) list.push({ key: `fc${i}`, type: "onecard", card: f.card, typingMs: 650 });
+        if (f.cards?.length) list.push({ key: `fc${i}`, who: "user", type: "usercards", cards: f.cards });
         if (f.a) list.push({ key: `fa${i}`, text: f.a, accent: true, typingMs: Math.min(1400, 500 + f.a.length * 4) });
       });
-      // กำลังรอเปิดไพ่ให้คำถามต่อ -> ชวนเปิดไพ่
+      // ถามต่อ: เลือกจำนวนไพ่ก่อน แล้วค่อยเปิดไพ่เอง
+      if (step === "followcount") {
+        list.push({ key: "fcount-prompt", text: "ได้เลย~ คำถามนี้อยากเปิดไพ่กี่ใบดี 👇", typingMs: 700 });
+      }
       if (step === "followpick") {
         list.push({ key: "fpick-prompt", text: "จัดให้~ แตะไพ่ใบกลางเปิดไพ่สำหรับคำถามนี้เลย 👇", typingMs: 750 });
       }
     }
     return list;
-  }, [purposeLabel, spreadLabel, questionDone, question, selected, aiText, aiError, followUps, step]);
+  }, [purposeLabel, spreadLabel, isOverview, questionDone, question, selected, aiText, aiError, followUps, step]);
 
   // ทยอยเผยข้อความ: ของ DeskMoo โชว์ typing ก่อน, ของผู้ใช้เด้งทันที
   useEffect(() => {
@@ -230,7 +247,7 @@ export default function DeskMooChat({
         <button
           type="button"
           className="deskmoo-mute"
-          onClick={() => setSoundOn((s) => !s)}
+          onClick={() => onToggleSound?.()}
           aria-label={soundOn ? "ปิดเสียง" : "เปิดเสียง"}
         >
           {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -243,7 +260,7 @@ export default function DeskMooChat({
             <div className="deskmoo-row is-user bubble-pop" key={m.key}>
               {m.type === "usercards" ? (
                 <div className="deskmoo-bubble user usercards">
-                  {selected.map((c, i) => (
+                  {(m.cards || selected).map((c, i) => (
                     <div className="deskmoo-card" key={i} onClick={() => onCardClick?.(c, i)}>
                       <ChatCardImg id={c.id} />
                       <span className="deskmoo-card-name">{c.name}</span>
@@ -261,20 +278,9 @@ export default function DeskMooChat({
               <div className="deskmoo-av">
                 <DeskMooAvatar size={30} />
               </div>
-              {m.type === "onecard" ? (
-                <div className="deskmoo-bubble">
-                  <div className="deskmoo-cards">
-                    <div className="deskmoo-card">
-                      <ChatCardImg id={m.card.id} />
-                      <span className="deskmoo-card-name">{m.card.name}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className={`deskmoo-bubble${m.accent ? " accent" : ""}`}>
-                  <RichText text={m.text} />
-                </div>
-              )}
+              <div className={`deskmoo-bubble${m.accent ? " accent" : ""}`}>
+                <RichText text={m.text} />
+              </div>
             </div>
           )
         )}
@@ -346,13 +352,37 @@ export default function DeskMooChat({
           </div>
         )}
 
+        {ready && step === "followcount" && (
+          <div className="deskmoo-chips">
+            {spreadOptions.map((s) => {
+              const locked = s.id === "celtic" && celticLockedUntil > Date.now();
+              return (
+                <button
+                  key={s.id}
+                  className="deskmoo-chip"
+                  disabled={locked}
+                  onClick={() => !locked && onPickFollowSpread?.(s.id)}
+                >
+                  {s.count} ใบ · {s.label}
+                  {locked
+                    ? ` · 🔒 เปิดได้อีก ${new Date(celticLockedUntil).toLocaleDateString("th-TH", {
+                        day: "numeric",
+                        month: "short",
+                      })}`
+                    : ""}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {ready && step === "followpick" && (
           <div className="deskmoo-bubble fan-bubble">
             <TarotFan
               key={`follow-${followUps.length}-${deckVersion}`}
               deck={deck}
-              maxSelect={1}
-              positions={[{ th: "ไพ่สำหรับคำถามนี้" }]}
+              maxSelect={followSpreadCount}
+              positions={followSpreadPositions}
               onConfirm={onConfirmFollowCard}
             />
           </div>

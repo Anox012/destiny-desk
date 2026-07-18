@@ -507,6 +507,26 @@ body {
    ✨ เอฟเฟกต์เพิ่มความขลัง
    ============================================================ */
 
+/* วิดีโอพื้นหลังเต็มจอ (อยู่หลังสุด z:-3) + ม่านครีมโปร่ง (z:-2) ให้ตัวหนังสืออ่านง่าย */
+.bg-video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -3;
+  pointer-events: none;
+}
+.bg-video-veil {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(245, 236, 221, 0.35), transparent 60%),
+    linear-gradient(160deg, rgba(245, 236, 221, 0.74), rgba(239, 230, 214, 0.82));
+}
+
 /* พื้นหลังผงทองลอย (canvas)
    z-index: -1 เพื่อให้วาด "หลัง" เนื้อหาทั้งหมดใน .app (positioned z>=0 จะทับตัวหนังสือ) */
 .starfield {
@@ -1067,7 +1087,8 @@ body {
 .deskmoo-bubble.fan-bubble {
   width: 100%;
   padding: 12px 6px;
-  background: rgba(255, 255, 255, 0.85);
+  /* ครีมโปร่งแสง ~80% ให้เข้ากับพื้นหลัง (เดิมขาวเกิน) */
+  background: rgba(245, 236, 221, 0.8);
 }
 
 /* ---------- ช่องถามต่อ / ช่องพิมพ์คำถาม ---------- */
