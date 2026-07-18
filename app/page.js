@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw } from "lucide-react";
 import { TOTAL_CARDS, getCardById } from "@/lib/cards";
 import { SPREADS, PURPOSES, getSpread } from "@/lib/spreads";
 import Starfield from "@/components/Starfield";
-import TarotFan from "@/components/TarotFan";
 import DeskMooChat from "@/components/DeskMooChat";
 
 // ---------------------------------------------------------------------------
@@ -29,6 +27,9 @@ function CardFace({ id }) {
 }
 
 const STORAGE_KEY = "destiny-desk-journal";
+// ไพ่ 10 ใบ (เซลติกครอส) = ดูภาพรวมของช่วงนั้น เปิดได้ 3 เดือนครั้ง
+const CELTIC_KEY = "destiny-desk-celtic-at";
+const CELTIC_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000;
 
 function shuffleIds() {
   const pool = [...Array(TOTAL_CARDS).keys()];
@@ -97,16 +98,16 @@ function roundRectPath(ctx, x, y, w, h, r) {
 }
 
 export default function Home() {
-  const [userName, setUserName] = useState("");
+  // ---------- แชตดูดวง: ถามทีละอย่าง (purpose -> count -> question -> pick -> reading) ----------
+  const [step, setStep] = useState("purpose");
   const [question, setQuestion] = useState("");
-  const [purpose, setPurpose] = useState(PURPOSES[0].id);
-  const [spreadId, setSpreadId] = useState("single");
+  const [purpose, setPurpose] = useState(null); // null = ยังไม่เลือก
+  const [spreadId, setSpreadId] = useState(null);
 
   // ---------- กองไพ่ (สำหรับเลื่อนดูใน TarotFan) ----------
   const [deckOrder, setDeckOrder] = useState(() => [...Array(TOTAL_CARDS).keys()]);
   const [deckVersion, setDeckVersion] = useState(0); // เพิ่มค่าเพื่อบังคับ remount TarotFan ตอนเริ่มใหม่
 
-  const [stage, setStage] = useState("select"); // select | result
   const [selected, setSelected] = useState([]); // [{id, name, th, pos}]
   const [popup, setPopup] = useState(null);
   const [toast, setToast] = useState("");
@@ -120,11 +121,14 @@ export default function Home() {
 
   // ---------- ถามต่อในแชต (จำกัดจำนวน กันโควต้าฟรีหมดเร็ว) ----------
   const MAX_FOLLOW_UPS = 5;
-  const [followUps, setFollowUps] = useState([]); // [{ q, a }]
+  const [followUps, setFollowUps] = useState([]); // [{ q, card, a }]
   const [followUpLoading, setFollowUpLoading] = useState(false);
 
-  const spread = useMemo(() => getSpread(spreadId), [spreadId]);
-  const purposeObj = PURPOSES.find((p) => p.id === purpose);
+  // ---------- ล็อกไพ่ 10 ใบ (ดูภาพรวมช่วง 3 เดือน เปิดได้ครั้งเดียวต่อ 3 เดือน) ----------
+  const [celticLockedUntil, setCelticLockedUntil] = useState(0);
+
+  const spread = useMemo(() => (spreadId ? getSpread(spreadId) : null), [spreadId]);
+  const purposeObj = purpose ? PURPOSES.find((p) => p.id === purpose) : null;
 
   const toastTimer = useRef(null);
 
@@ -133,19 +137,13 @@ export default function Home() {
     setDeckOrder(shuffleIds());
   }, []);
 
-  // เปลี่ยนรูปแบบการวางไพ่ -> เริ่มเลือกใหม่
-  useEffect(() => {
-    setSelected([]);
-    setStage("select");
-    setAiText("");
-    setAiError("");
-  }, [spreadId]);
-
-  // โหลดประวัติจาก LocalStorage
+  // โหลดประวัติ + เวลาที่เปิดไพ่ 10 ใบล่าสุด จาก LocalStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setJournal(JSON.parse(raw));
+      const at = Number(localStorage.getItem(CELTIC_KEY));
+      if (at) setCelticLockedUntil(at + CELTIC_COOLDOWN_MS);
     } catch (_) {}
   }, []);
 
@@ -154,14 +152,13 @@ export default function Home() {
     return () => clearTimeout(toastTimer.current);
   }, []);
 
-  // เข้าหน้าแชตผล -> ให้ DeskMoo ทำนายเต็มๆ อัตโนมัติ (ไม่ต้องกดปุ่ม)
-  // ยิงตอนเข้า stage result เลย (ขนานกับตอนบับเบิลทยอยเด้ง) พออ่านเสร็จค่อยเด้งเข้าแชต
+  // เข้าขั้นอ่านผล -> ให้ DeskMoo ทำนายเต็มๆ อัตโนมัติ (ไม่ต้องกดปุ่ม)
   useEffect(() => {
-    if (stage === "result" && selected.length > 0 && !aiText && !aiLoading && !aiError) {
+    if (step === "reading" && selected.length > 0 && !aiText && !aiLoading && !aiError) {
       requestAiReading();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage]);
+  }, [step]);
 
   function showToast(msg) {
     clearTimeout(toastTimer.current);
@@ -169,19 +166,45 @@ export default function Home() {
     toastTimer.current = setTimeout(() => setToast(""), 2200);
   }
 
+  // ---------- ตอบทีละขั้นในแชต ----------
+  function pickPurpose(id) {
+    setPurpose(id);
+    setStep("count");
+  }
+  function pickSpread(id) {
+    if (id === "celtic" && Date.now() < celticLockedUntil) return; // 10 ใบยังล็อกอยู่
+    setSpreadId(id);
+    setStep("question");
+  }
+  function submitQuestion(text) {
+    setQuestion(text || "");
+    setStep("pick");
+  }
+
   // ---------- ยืนยันไพ่ที่เลือกจาก TarotFan ----------
   function handleFanConfirm(ids) {
-    if (stage === "result") return; // กันกดยืนยันซ้ำ (TarotFan ยังค้างอยู่ด้านบน)
+    if (step === "reading") return; // กันกดยืนยันซ้ำ
     const picked = ids.map((id, i) => ({ ...getCardById(id), pos: spread.positions[i] }));
+    // ไพ่ 10 ใบ = เริ่มนับคูลดาวน์ 3 เดือน
+    if (spreadId === "celtic") {
+      const now = Date.now();
+      try {
+        localStorage.setItem(CELTIC_KEY, String(now));
+      } catch (_) {}
+      setCelticLockedUntil(now + CELTIC_COOLDOWN_MS);
+    }
     setSelected(picked);
-    setStage("result");
+    setStep("reading");
     saveToJournal(picked);
   }
 
-  // ---------- เริ่มใหม่: สับไพ่ใหม่ + รีเซ็ต TarotFan ----------
+  // ---------- เริ่มใหม่: เริ่มบทสนทนาใหม่ทั้งหมด ----------
   function handleClearDeck() {
     setPopup(null);
-    setStage("select");
+    setStep("purpose");
+    setPurpose(null);
+    setSpreadId(null);
+    setQuestion("");
     setSelected([]);
     setAiText("");
     setAiError("");
@@ -190,13 +213,12 @@ export default function Home() {
     setFollowUpLoading(false);
     setDeckOrder(shuffleIds());
     setDeckVersion((v) => v + 1);
-    showToast("เริ่มใหม่แล้ว ✷ เลือกไพ่ได้เลย");
   }
 
   function saveToJournal(picked) {
     const entry = {
       at: new Date().toISOString(),
-      name: userName || "ไม่ระบุชื่อ",
+      name: "",
       purpose: purposeObj?.label,
       spread: spread.label,
       cards: picked.map((c) => c.name),
@@ -444,7 +466,6 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userName,
           purpose: purposeObj?.label,
           question,
           spreadLabel: spread.label,
@@ -466,13 +487,22 @@ export default function Home() {
   }
 
   // ---------- ถามต่อในแชต: เปลี่ยนเรื่องได้ เปิดไพ่ใหม่ 1 ใบให้คำถามนั้น ----------
-  async function askFollowUp(q) {
+  // พิมพ์คำถามต่อ -> โชว์คำถาม + กองไพ่ใหม่ให้เปิดเอง (ไม่ใช่ AI จั่วให้)
+  function askFollowUp(q) {
     const text = (q || "").trim();
     if (!text || followUpLoading || followUps.length >= MAX_FOLLOW_UPS || !aiText) return;
+    setFollowUps((prev) => [...prev, { q: text }]); // ยังไม่มีไพ่/คำตอบ รอเปิดไพ่
+    setDeckOrder(shuffleIds());
+    setDeckVersion((v) => v + 1);
+    setStep("followpick");
+  }
 
-    // จั่วไพ่ใหม่ 1 ใบสำหรับคำถามนี้ (แบบหมอดูจริง ถามเรื่องใหม่ก็เปิดไพ่ใหม่)
-    const card = getCardById(Math.floor(Math.random() * TOTAL_CARDS));
-    setFollowUps((prev) => [...prev, { q: text, card, a: "" }]); // โชว์คำถาม + ไพ่ก่อนเลย
+  // เปิดไพ่สำหรับคำถามต่อเสร็จ -> อ่านไพ่ใบนั้นตอบ
+  async function confirmFollowCard(ids) {
+    const card = getCardById(ids[0]);
+    const q = followUps[followUps.length - 1]?.q || "";
+    setFollowUps((prev) => prev.map((f, i) => (i === prev.length - 1 ? { ...f, card } : f)));
+    setStep("reading");
     setFollowUpLoading(true);
     try {
       const res = await fetch("/api/interpret", {
@@ -480,8 +510,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "followup",
-          followUpQuestion: text,
-          userName,
+          followUpQuestion: q,
           purpose: purposeObj?.label,
           spreadLabel: "ไพ่ถามต่อ 1 ใบ",
           cards: [{ name: card.name, pos: "คำถามที่ถามต่อ", th: card.th }],
@@ -511,93 +540,40 @@ export default function Home() {
       </header>
       <div className="gold-rule" />
 
-      {/* ---------- แผงควบคุม (ด้านบน) ---------- */}
-      <section className="panel">
-        <div className="field-grid">
-          <div className="field">
-            <label>ชื่อของคุณ</label>
-            <input
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              placeholder="เช่น มณี"
-            />
-          </div>
-
-          <div className="field">
-            <label>วัตถุประสงค์</label>
-            <select value={purpose} onChange={(e) => setPurpose(e.target.value)}>
-              {PURPOSES.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label} — {p.th}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="field">
-            <label>รูปแบบการวางไพ่</label>
-            <select value={spreadId} onChange={(e) => setSpreadId(e.target.value)}>
-              {Object.values(SPREADS).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label} — {s.th}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="field">
-            <label>คำถามของคุณ (ไม่บังคับ)</label>
-            <textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="ใส่ไว้ถ้าอยากให้ AI ทำนายเจาะจงขึ้น เช่น ความสัมพันธ์นี้จะเป็นอย่างไรต่อไป"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- โซนพัดไพ่ (TarotFan) — ค้างไว้เสมอ แชตทำนายต่อข้างล่าง ---------- */}
-      <section className="deck-zone">
-        <p className="deck-hint">เลื่อนดูด้วยลูกศร/ปัดนิ้ว แล้วแตะไพ่ใบกลางเพื่อเลือก — {spread.th}</p>
-
-        <TarotFan
-          key={`${spreadId}-${deckVersion}`}
+      {/* ---------- แชตดูดวง DeskMoo ทั้งหน้า ---------- */}
+      <section className="board-wrap">
+        <DeskMooChat
+          step={step}
+          purposeLabel={purposeObj ? purposeObj.th : null}
+          spreadLabel={spread ? spread.th : null}
+          question={question}
+          purposeOptions={PURPOSES}
+          spreadOptions={Object.values(SPREADS)}
+          celticLockedUntil={celticLockedUntil}
           deck={deckOrder}
-          maxSelect={spread.count}
-          positions={spread.positions}
-          onConfirm={handleFanConfirm}
+          deckVersion={deckVersion}
+          spreadCount={spread ? spread.count : 1}
+          spreadPositions={spread ? spread.positions : []}
+          selected={selected}
+          aiText={aiText}
+          aiLoading={aiLoading}
+          aiError={aiError}
+          sharing={sharing}
+          followUps={followUps}
+          followUpLoading={followUpLoading}
+          followUpsLeft={MAX_FOLLOW_UPS - followUps.length}
+          onPickPurpose={pickPurpose}
+          onPickSpread={pickSpread}
+          onSubmitQuestion={submitQuestion}
+          onSkipQuestion={() => submitQuestion("")}
+          onConfirmCards={handleFanConfirm}
+          onAskFollowUp={askFollowUp}
+          onConfirmFollowCard={confirmFollowCard}
+          onShare={shareResult}
+          onRestart={handleClearDeck}
+          onCardClick={(c, i) => c.pos?.key != null && setPopup({ ...c, idx: i })}
         />
-
-        <div className="deck-controls">
-          <button className="btn-deck" onClick={handleClearDeck}>
-            <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
-            เริ่มใหม่
-          </button>
-        </div>
       </section>
-
-      {/* ---------- แชตทำนาย DeskMoo (ต่อจากส่วนเลือกไพ่ ไม่ทับกัน) ---------- */}
-      {stage === "result" && (
-        <section className="board-wrap">
-          <div className="gold-rule" />
-          <DeskMooChat
-            key={selected.map((c) => c.id).join("-")}
-            selected={selected}
-            aiText={aiText}
-            aiLoading={aiLoading}
-            aiError={aiError}
-            sharing={sharing}
-            followUps={followUps}
-            followUpLoading={followUpLoading}
-            followUpsLeft={MAX_FOLLOW_UPS - followUps.length}
-            onAskFollowUp={askFollowUp}
-            onRequestAI={requestAiReading}
-            onShare={shareResult}
-            onRestart={handleClearDeck}
-            onCardClick={(c, i) => c.pos?.key != null && setPopup({ ...c, idx: i })}
-          />
-        </section>
-      )}
 
       {/* ---------- ประวัติการดูดวง (Tarot Journal) ---------- */}
       {journal.length > 0 && (
