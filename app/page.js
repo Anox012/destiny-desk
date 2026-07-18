@@ -27,9 +27,9 @@ function CardFace({ id }) {
 }
 
 const STORAGE_KEY = "destiny-desk-journal";
-// ไพ่ 10 ใบ (เซลติกครอส) = ดูภาพรวมของช่วงนั้น เปิดได้ 3 เดือนครั้ง
+// ไพ่ 10 ใบ (เซลติกครอส) = ดูภาพรวมชีวิตช่วงนั้น เปิดได้เดือนละครั้ง (1 เดือน)
 const CELTIC_KEY = "destiny-desk-celtic-at";
-const CELTIC_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000;
+const CELTIC_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
 function shuffleIds() {
   const pool = [...Array(TOTAL_CARDS).keys()];
@@ -113,6 +113,10 @@ export default function Home() {
   const [toast, setToast] = useState("");
   const [journal, setJournal] = useState([]);
 
+  // ---------- เสียง: คุมทั้งเสียงป๊อปในแชต + เสียงจากคลิปพื้นหลัง ----------
+  const [soundOn, setSoundOn] = useState(true);
+  const videoRef = useRef(null);
+
   // ---------- ทำนายด้วย AI (Gemini free tier) ----------
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -121,8 +125,9 @@ export default function Home() {
 
   // ---------- ถามต่อในแชต (จำกัดจำนวน กันโควต้าฟรีหมดเร็ว) ----------
   const MAX_FOLLOW_UPS = 5;
-  const [followUps, setFollowUps] = useState([]); // [{ q, card, a }]
+  const [followUps, setFollowUps] = useState([]); // [{ q, cards, a }]
   const [followUpLoading, setFollowUpLoading] = useState(false);
+  const [followSpread, setFollowSpread] = useState(null); // รูปแบบไพ่ที่เลือกสำหรับคำถามต่อ
 
   // ---------- ล็อกไพ่ 10 ใบ (ดูภาพรวมช่วง 3 เดือน เปิดได้ครั้งเดียวต่อ 3 เดือน) ----------
   const [celticLockedUntil, setCelticLockedUntil] = useState(0);
@@ -152,6 +157,32 @@ export default function Home() {
     return () => clearTimeout(toastTimer.current);
   }, []);
 
+  // เสียงคลิปพื้นหลัง: เบราว์เซอร์บล็อกเสียงจนกว่าจะมี user gesture
+  // -> เริ่มเล่นแบบเงียบ (autoplay ได้) แล้วค่อยเปิดเสียงตอนผู้ใช้แตะครั้งแรก (ถ้าเปิดเสียงอยู่)
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) v.muted = true; // เริ่มเงียบเสมอ ให้ autoplay ผ่านก่อน
+    function unlock() {
+      const vid = videoRef.current;
+      if (vid) {
+        vid.muted = !soundOn;
+        vid.play().catch(() => {});
+      }
+      window.removeEventListener("pointerdown", unlock);
+    }
+    window.addEventListener("pointerdown", unlock);
+    return () => window.removeEventListener("pointerdown", unlock);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // กดปุ่มเปิด/ปิดเสียง -> ปรับทั้งคลิปพื้นหลัง (การกดปุ่มถือเป็น gesture เปิดเสียงได้)
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !soundOn;
+    if (soundOn) v.play().catch(() => {});
+  }, [soundOn]);
+
   // เข้าขั้นอ่านผล -> ให้ DeskMoo ทำนายเต็มๆ อัตโนมัติ (ไม่ต้องกดปุ่ม)
   useEffect(() => {
     if (step === "reading" && selected.length > 0 && !aiText && !aiLoading && !aiError) {
@@ -174,7 +205,13 @@ export default function Home() {
   function pickSpread(id) {
     if (id === "celtic" && Date.now() < celticLockedUntil) return; // 10 ใบยังล็อกอยู่
     setSpreadId(id);
-    setStep("question");
+    // ไพ่ 10 ใบ = ดูภาพรวมชีวิตอย่างเดียว ไม่ต้องพิมพ์คำถาม เข้าเลือกไพ่เลย
+    if (id === "celtic") {
+      setQuestion("");
+      setStep("pick");
+    } else {
+      setStep("question");
+    }
   }
   function submitQuestion(text) {
     setQuestion(text || "");
@@ -185,7 +222,7 @@ export default function Home() {
   function handleFanConfirm(ids) {
     if (step === "reading") return; // กันกดยืนยันซ้ำ
     const picked = ids.map((id, i) => ({ ...getCardById(id), pos: spread.positions[i] }));
-    // ไพ่ 10 ใบ = เริ่มนับคูลดาวน์ 3 เดือน
+    // ไพ่ 10 ใบ = เริ่มนับคูลดาวน์ 1 เดือน
     if (spreadId === "celtic") {
       const now = Date.now();
       try {
@@ -211,6 +248,7 @@ export default function Home() {
     setAiLoading(false);
     setFollowUps([]);
     setFollowUpLoading(false);
+    setFollowSpread(null);
     setDeckOrder(shuffleIds());
     setDeckVersion((v) => v + 1);
   }
@@ -486,22 +524,39 @@ export default function Home() {
     }
   }
 
-  // ---------- ถามต่อในแชต: เปลี่ยนเรื่องได้ เปิดไพ่ใหม่ 1 ใบให้คำถามนั้น ----------
-  // พิมพ์คำถามต่อ -> โชว์คำถาม + กองไพ่ใหม่ให้เปิดเอง (ไม่ใช่ AI จั่วให้)
+  // ---------- ถามต่อในแชต: เปลี่ยนเรื่องได้ เลือกจำนวนไพ่เอง แล้วเปิดไพ่ใหม่ให้คำถามนั้น ----------
+  // พิมพ์คำถามต่อ -> ให้เลือกก่อนว่าจะเปิดกี่ใบ (ชิป 1/3/10 เหมือนตอนเริ่ม)
   function askFollowUp(q) {
     const text = (q || "").trim();
     if (!text || followUpLoading || followUps.length >= MAX_FOLLOW_UPS || !aiText) return;
-    setFollowUps((prev) => [...prev, { q: text }]); // ยังไม่มีไพ่/คำตอบ รอเปิดไพ่
+    setFollowUps((prev) => [...prev, { q: text }]); // ยังไม่มีไพ่/คำตอบ รอเลือกจำนวน + เปิดไพ่
+    setFollowSpread(null);
+    setStep("followcount");
+  }
+
+  // เลือกจำนวนไพ่สำหรับคำถามต่อ -> สับกองใหม่ให้เปิดเอง
+  function pickFollowSpread(id) {
+    if (id === "celtic" && Date.now() < celticLockedUntil) return; // 10 ใบยังล็อกอยู่
+    setFollowSpread(getSpread(id));
     setDeckOrder(shuffleIds());
     setDeckVersion((v) => v + 1);
     setStep("followpick");
   }
 
-  // เปิดไพ่สำหรับคำถามต่อเสร็จ -> อ่านไพ่ใบนั้นตอบ
+  // เปิดไพ่สำหรับคำถามต่อเสร็จ -> อ่านไพ่ที่เลือกตอบ
   async function confirmFollowCard(ids) {
-    const card = getCardById(ids[0]);
+    const sp = followSpread || getSpread("single");
+    const cards = ids.map((id, i) => ({ ...getCardById(id), pos: sp.positions[i] }));
     const q = followUps[followUps.length - 1]?.q || "";
-    setFollowUps((prev) => prev.map((f, i) => (i === prev.length - 1 ? { ...f, card } : f)));
+    // ถ้าถามต่อด้วยไพ่ 10 ใบ = เริ่มนับคูลดาวน์ 1 เดือนเหมือนกัน
+    if (sp.id === "celtic") {
+      const now = Date.now();
+      try {
+        localStorage.setItem(CELTIC_KEY, String(now));
+      } catch (_) {}
+      setCelticLockedUntil(now + CELTIC_COOLDOWN_MS);
+    }
+    setFollowUps((prev) => prev.map((f, i) => (i === prev.length - 1 ? { ...f, cards } : f)));
     setStep("reading");
     setFollowUpLoading(true);
     try {
@@ -512,8 +567,8 @@ export default function Home() {
           mode: "followup",
           followUpQuestion: q,
           purpose: purposeObj?.label,
-          spreadLabel: "ไพ่ถามต่อ 1 ใบ",
-          cards: [{ name: card.name, pos: "คำถามที่ถามต่อ", th: card.th }],
+          spreadLabel: sp.th,
+          cards: cards.map((c) => ({ name: c.name, pos: c.pos?.th, th: c.th })),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -533,6 +588,12 @@ export default function Home() {
 
   return (
     <main className="app">
+      {/* ---------- วิดีโอพื้นหลัง (เล่นวน มีเสียงคลิป) + ม่านครีมบางๆ ให้อ่านง่าย ---------- */}
+      {/* เริ่มเล่นแบบ muted ให้ autoplay ผ่าน แล้ว unlock เสียงตอนแตะครั้งแรก (ดู useEffect ด้านบน) */}
+      <video ref={videoRef} className="bg-video" autoPlay loop muted playsInline aria-hidden="true">
+        <source src="/video.mp4" type="video/mp4" />
+      </video>
+      <div className="bg-video-veil" aria-hidden="true" />
       <Starfield />
       <header className="app-header">
         <h1 className="app-title">Destiny Desk</h1>
@@ -554,6 +615,8 @@ export default function Home() {
           deckVersion={deckVersion}
           spreadCount={spread ? spread.count : 1}
           spreadPositions={spread ? spread.positions : []}
+          followSpreadCount={followSpread ? followSpread.count : 1}
+          followSpreadPositions={followSpread ? followSpread.positions : []}
           selected={selected}
           aiText={aiText}
           aiLoading={aiLoading}
@@ -562,12 +625,15 @@ export default function Home() {
           followUps={followUps}
           followUpLoading={followUpLoading}
           followUpsLeft={MAX_FOLLOW_UPS - followUps.length}
+          soundOn={soundOn}
+          onToggleSound={() => setSoundOn((s) => !s)}
           onPickPurpose={pickPurpose}
           onPickSpread={pickSpread}
           onSubmitQuestion={submitQuestion}
           onSkipQuestion={() => submitQuestion("")}
           onConfirmCards={handleFanConfirm}
           onAskFollowUp={askFollowUp}
+          onPickFollowSpread={pickFollowSpread}
           onConfirmFollowCard={confirmFollowCard}
           onShare={shareResult}
           onRestart={handleClearDeck}
